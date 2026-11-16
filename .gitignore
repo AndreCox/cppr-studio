@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.npm-cache/
+.scratch/
+*.log
+.DS_Store
+paper1.txt
+paper2.txt
+
+*.pdf
