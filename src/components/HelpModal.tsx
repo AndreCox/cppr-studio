@@ -40,6 +40,15 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             on the final (distal-most) segment; the extension length, hole diameter, hole distance from the tip and clocking angle are
             adjustable. The extension and holes are included in both the printed STLs and the laser patterns.
           </p>
+          <h3>Cosserat (accurate) bending</h3>
+          <p>
+            The right rail has a <b>Bending model</b> section (visible in every view) and the <b>3D robot</b> context bar shows the live solver status. <b>Analytic</b> is the fast design model used while sizing notches.
+            <b>Cosserat</b> runs a nonlinear Cosserat rod solve over the designed notch depths and push/pull; the solver is compiled to
+            WebAssembly, loaded on demand, and reports convergence, iterations, solve time and residual. <b>Planar (2D)</b> is the
+            recommended mode for these planar notch schedules; turn it off for the full 3D rod model with optional gravity (slower,
+            and it may return a best-effort shape if it cannot converge). The rod model uses the outer-tube material for both tubes and
+            averages the notch length/spacing because the design's notches vary slightly.
+          </p>
           <h3>Live STL preview</h3>
           <p>
             The <b>STL preview</b> tab renders the actual printable tube meshes and updates as you edit. It shows the outer and inner
@@ -73,8 +82,9 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           </ul>
           <h3>What the model does not include</h3>
           <p>
-            Friction, clearance take-up, notch contact, manufacturing tolerances, external loads and 3D effects. The model is planar;
-            a multi-segment robot is assembled as planar sections with a roll angle. Always prototype before clinical or safety-critical use.
+            The notch-design model is planar and is assembled from planar sections with a roll angle. The Cosserat card can evaluate the
+            designed geometry with a rod model (planar by default, full 3D optional), but it still omits friction, clearance take-up,
+            notch contact, manufacturing tolerances and external loads. Always prototype before clinical or safety-critical use.
           </p>
           <h3>References</h3>
           <p style={{ fontSize: 10.5 }}>

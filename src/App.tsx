@@ -18,6 +18,7 @@ import { BottomPanel } from './components/BottomPanel';
 import { HelpModal } from './components/HelpModal';
 import { ExamplesModal } from './components/ExamplesModal';
 import { Icon, useDebounced } from './components/ui';
+import { solveCosserat, type CosseratResult, type SolverMode } from './core/cosserat/solver';
 
 type View = 'shape' | 'robot' | 'section' | 'pattern' | 'tube' | 'fabricate';
 type BottomTab = 'notches' | 'charts' | 'diagnostics';
@@ -41,6 +42,12 @@ export default function App() {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [bottomHeight, setBottomHeight] = useState(232);
   const [fraction, setFraction] = useState(1);
+  const [solverMode, setSolverMode] = useState<SolverMode>('analytic');
+  const [gravityEnabled, setGravityEnabled] = useState(false);
+  const [cosseratPlanar, setCosseratPlanar] = useState(true);
+  const [cosserat, setCosserat] = useState<CosseratResult | null>(null);
+  const [cosseratPending, setCosseratPending] = useState(false);
+  const [cosseratError, setCosseratError] = useState<string | null>(null);
   const [notchIndex, setNotchIndex] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [examplesOpen, setExamplesOpen] = useState(false);
@@ -50,6 +57,42 @@ export default function App() {
   const designInput = useDebounced(project, 90);
   const result = useMemo(() => designProject(designInput), [designInput]);
   const designing = designInput !== project;
+
+  useEffect(() => {
+    if (view !== 'robot' || solverMode !== 'cosserat') {
+      setCosserat(null);
+      setCosseratPending(false);
+      setCosseratError(null);
+      return;
+    }
+    if (!result.ok) {
+      setCosserat(null);
+      setCosseratPending(false);
+      setCosseratError('Fix the design checks before running the Cosserat solver.');
+      return;
+    }
+    let cancelled = false;
+    setCosseratPending(true);
+    setCosseratError(null);
+    const timer = window.setTimeout(() => {
+      solveCosserat(designInput, result, { fraction, gravityEnabled, planar: cosseratPlanar })
+        .then((solved) => {
+          if (cancelled) return;
+          setCosserat(solved);
+          setCosseratPending(false);
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return;
+          setCosserat(null);
+          setCosseratPending(false);
+          setCosseratError(error instanceof Error ? error.message : String(error));
+        });
+    }, 260);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [view, solverMode, designInput, result, fraction, gravityEnabled, cosseratPlanar]);
 
   const selected: SegmentConfig =
     project.segments.find((s) => s.id === selectedId) ?? project.segments[0];
@@ -255,6 +298,17 @@ export default function App() {
     ? selectedRes.sweep.reduce((best, s) => (Math.abs(s.q / Math.max(1e-9, selectedRes.qDesign) - fraction) < Math.abs(best.q / Math.max(1e-9, selectedRes.qDesign) - fraction) ? s : best), selectedRes.sweep[0])
     : null;
   const qLabel = selectedRes ? `${(selectedRes.qDesign * fraction).toFixed(2)} mm` : '—';
+  const cosseratStatus = solverMode !== 'cosserat'
+    ? null
+    : cosseratPending
+      ? { tone: 'pending', label: 'solving…', title: 'Solving the Cosserat rod model' }
+      : cosseratError
+        ? { tone: 'error', label: 'error', title: cosseratError }
+        : !cosserat
+          ? { tone: 'pending', label: 'waiting…', title: 'Waiting for the design' }
+          : cosserat.converged
+            ? { tone: 'ok', label: `converged · ${cosserat.iterations} it · ${(cosserat.solveTimeMs / 1000).toFixed(1)} s`, title: `Residual ${cosserat.residual.toExponential(1)}` }
+            : { tone: 'warn', label: `best effort · ${cosserat.iterations} it`, title: cosserat.message ?? 'The rod solve did not converge' };
 
   return (
     <div className="app">
@@ -300,6 +354,11 @@ export default function App() {
           {(view === 'shape' || view === 'robot') && (
             <div className="context-bar">
               <div className="view-tools">
+                {view === 'robot' && solverMode === 'cosserat' && cosseratStatus && (
+                  <span className={`solver-chip ${cosseratStatus.tone}`} title={cosseratStatus.title}>
+                    <span className="solver-dot" /> Cosserat · {cosseratStatus.label}
+                  </span>
+                )}
                 {(view === 'shape' || view === 'robot') && (
                     <div className="actuation" title="Actuation preview: negative pushes the inner tube, positive pulls it">
                       <span className="lbl">Actuation</span>
@@ -360,6 +419,8 @@ export default function App() {
                 fraction={fraction}
                 selectedSegmentId={selected?.id ?? ''}
                 onSelectSegment={selectSegment}
+                solverMode={solverMode}
+                cosserat={cosserat}
               />
             )}
             {view === 'section' && (
@@ -412,6 +473,15 @@ export default function App() {
           onMove={(dir) => moveSegment(selected.id, dir)}
           canMoveUp={segIndex > 0}
           canMoveDown={segIndex >= 0 && segIndex < project.segments.length - 1}
+          solverMode={solverMode}
+          onSolverMode={setSolverMode}
+          gravityEnabled={gravityEnabled}
+          onGravityEnabled={setGravityEnabled}
+          planar={cosseratPlanar}
+          onPlanar={setCosseratPlanar}
+          cosserat={cosserat}
+          cosseratPending={cosseratPending}
+          cosseratError={cosseratError}
         />
       </div>
 

@@ -4,8 +4,9 @@ import { compileDesiredCurve, waypointsFromCurve } from '../core/geometry/curve'
 import { findMaterial } from '../core/materials';
 import { PRESET_PROFILES } from '../core/geometry/curve';
 import {
-  Button, Chip, Collapsible, Field, Icon, LogSlider, NumberField, SelectField, Toggle, fmt,
+  Button, Chip, Collapsible, Field, Icon, LogSlider, NumberField, Segmented, SelectField, Toggle, fmt,
 } from './ui';
+import type { CosseratResult, SolverMode } from '../core/cosserat/solver';
 
 interface Props {
   project: Project;
@@ -18,9 +19,22 @@ interface Props {
   onMove: (dir: -1 | 1) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  solverMode: SolverMode;
+  onSolverMode: (mode: SolverMode) => void;
+  gravityEnabled: boolean;
+  onGravityEnabled: (enabled: boolean) => void;
+  planar: boolean;
+  onPlanar: (planar: boolean) => void;
+  cosserat: CosseratResult | null;
+  cosseratPending: boolean;
+  cosseratError: string | null;
 }
 
-export function Inspector({ project, cfg, res, onChange, onMaterialChange, onDuplicate, onDelete, onMove, canMoveUp, canMoveDown }: Props) {
+export function Inspector({
+  project, cfg, res, onChange, onMaterialChange, onDuplicate, onDelete, onMove, canMoveUp, canMoveDown,
+  solverMode, onSolverMode, gravityEnabled, onGravityEnabled, planar, onPlanar,
+  cosserat, cosseratPending, cosseratError,
+}: Props) {
   const matO = findMaterial(project.materials, cfg.outerTube.materialId);
   const matI = findMaterial(project.materials, cfg.innerTube.materialId);
   const [editMaterial, setEditMaterial] = useState<string>(cfg.outerTube.materialId);
@@ -33,6 +47,17 @@ export function Inspector({ project, cfg, res, onChange, onMaterialChange, onDup
   const allowO = (cfg.strainLimitOverride ?? matO.strainLimit) / cfg.safetyFactor;
   const allowI = (cfg.strainLimitOverride ?? matI.strainLimit) / cfg.safetyFactor;
   const condition = res ? (res.errors.length ? 'err' : res.warnings.length ? 'warn' : 'ok') : 'gray';
+  const solverStatus = solverMode !== 'cosserat'
+    ? null
+    : cosseratPending
+      ? { tone: 'pending', text: 'Solving rod model…' }
+      : cosseratError
+        ? { tone: 'error', text: cosseratError }
+        : !cosserat
+          ? { tone: 'pending', text: 'Waiting for design…' }
+          : cosserat.converged
+            ? { tone: 'ok', text: `Converged · ${cosserat.iterations} it · ${(cosserat.solveTimeMs / 1000).toFixed(2)} s` }
+            : { tone: 'warn', text: `Best effort · ${cosserat.iterations} it · ${(cosserat.solveTimeMs / 1000).toFixed(1)} s` };
 
   const presetOptions = (Object.keys(PRESET_PROFILES) as (keyof typeof PRESET_PROFILES)[]).map((p) => ({
     value: p,
@@ -83,6 +108,49 @@ export function Inspector({ project, cfg, res, onChange, onMaterialChange, onDup
       </div>
 
       <div className="sidebar-scroll">
+
+        <Collapsible
+          title="Bending model"
+          badge={<Chip tone={solverMode === 'cosserat' ? (cosserat?.converged ? 'ok' : cosserat ? 'warn' : 'info') : 'gray'}>{solverMode === 'cosserat' ? 'Cosserat' : 'Analytic'}</Chip>}
+        >
+          <Segmented
+            value={solverMode}
+            onChange={onSolverMode}
+            options={[
+              { value: 'analytic', label: 'Analytic' },
+              { value: 'cosserat', label: 'Cosserat' },
+            ]}
+          />
+          <div className="solver-controls">
+            <Toggle
+              label="Planar (2D)"
+              checked={planar}
+              onChange={onPlanar}
+              disabled={solverMode !== 'cosserat'}
+              hint="Planar reduction — recommended for the planar notch schedules"
+            />
+            <Toggle
+              label="Gravity"
+              checked={gravityEnabled}
+              onChange={onGravityEnabled}
+              disabled={solverMode !== 'cosserat' || planar}
+              hint="Include self-weight in the Cosserat rod solve (full 3D only)"
+            />
+          </div>
+          {solverStatus && (
+            <div
+              className={`solver-status ${solverStatus.tone}`}
+              title={cosseratError ?? (cosserat ? `Residual ${cosserat.residual.toExponential(1)}${cosserat.message ? ` · ${cosserat.message}` : ''}` : undefined)}
+            >
+              <span className="solver-dot" />
+              <span>{solverStatus.text}</span>
+            </div>
+          )}
+          <div className="solver-note">
+            Runs the Cosserat rod solver (WebAssembly) over the designed notch depths and push/pull. Uses the outer-tube
+            material for both tubes and averaged notch spacing; full 3D may take several seconds.
+          </div>
+        </Collapsible>
         <Collapsible title="Target shape" badge={<Chip tone="info" icon="spline">κ</Chip>}>
           <SelectField
             label="Shape preset"

@@ -18,6 +18,10 @@ A graphical design tool for **multi-section concentric push–pull robots (CPPRs
 | --- | --- |
 | ![Live STL preview](docs/screenshots/stl-preview.png) | ![Tip cross-pin](docs/screenshots/tip-cross-pin.png) |
 
+| Cosserat rod preview (WebAssembly) |
+| --- |
+| ![Cosserat rod preview](docs/screenshots/cosserat.png) |
+
 | Design report |
 | --- |
 | ![Design report](docs/screenshots/report.png) |
@@ -42,6 +46,7 @@ Requires Node 18+ (developed on Node 24). The app is a static Vite/React/TypeScr
 - **Verification.** Strain utilisation per edge, depth caps, Euler buckling, self-contact limit, clearance, achievable curvature envelope, shape fit error, tip error and mass. The exact forward kinematics is solved at the design actuation and swept across a workspace for previews.
 - **Hand actuation.** Give each inner tube a solid proximal **handle extension** so it can be gripped and pulled by hand. It is included in the complete inner STL and laser pattern; align the **distal tips** during assembly.
 - **Tip cross-pin.** Optionally extend both tube tips with a short straight collar and a diametric cross-hole sized for 1.75 mm filament. The two openings are 180° apart; a pin through the assembled pair locks the tips together. Toggle it off, or customize the tip extension, hole diameter, hole distance from the tip and clocking angle. The extension and holes are included in the printed STLs, the laser patterns and the live viewer (green).
+- **Cosserat preview.** The **Bending model** section in the right rail switches the 3D robot from the fast analytic model to the Rust Cosserat rod solver compiled to WebAssembly. It re-solves the designed notch depths and push/pull, reports convergence/iterations/time, and supports a planar (recommended) or full 3D + gravity mode.
 - **Live STL preview.** A dedicated viewer rebuilds the actual printable outer/inner tube meshes as you change settings. Switch Both/Outer/Inner and Complete/Tip-only, orbit/zoom, auto-rotate or fit; handle (purple), solid transmission (grey), flex transmission (blue) and active notches (orange) are color-coded, with the distal tips aligned and the inner exploded above the outer.
 - **Fabrication.** Binary STL for each tube in the print orientation (layers along the axis): **tip-only** files for the bending section and **complete-tube** files that include the transmission slots and the inner handle. Also a **tip-only build plate**, a **complete-tube build plate** (all full tubes in one STL), 1:1 unrolled SVG/DXF laser patterns, a printable HTML design report, notch CSV, full design JSON, and a **Download everything (.zip)** package containing all tubes, both plates, both laser files, the report, CSV, JSON and a README.
 - **Usability.** Live 2D shape canvas with pan/zoom, 3D orbit view, cross-section inspector with neutral axes and strain edges, notch table and charts, examples, undo/redo, project import/export and autosave.
@@ -58,7 +63,7 @@ The default project is a two-segment, 3D-printable robot with orthogonal bending
 
 ## Model
 
-The tool implements the planar variable-curvature model and the notch design procedure of Oliver-Butler et al. (IEEE T-RO 2022). The transmission-pattern vocabulary follows Dang et al. (ISMR 2024).
+The tool implements the planar variable-curvature model and the notch design procedure of Oliver-Butler et al. (IEEE T-RO 2022). The transmission-pattern vocabulary follows Dang et al. (ISMR 2024). The optional **Cosserat** preview is the same rod model used in the research backend: it runs over the designed notch depths and push/pull, compiled to WebAssembly and loaded only when selected. The planar reduction is the default (matching these planar notch schedules); full 3D with gravity is available in the 3D robot view. It uses the outer-tube material for both tubes and averages the notch length/spacing.
 
 For each notch pair, the tube neutral-axis offset γ̄ is obtained from the exact area/centroid/second-moment of the notched annular section (chord or radial cut), computed by integration and tabulated for fast inversion. With `d = γ_i − γ_o`, signed for the local bending direction:
 
@@ -91,7 +96,7 @@ The benchmark notch (largest curvature) is solved first so its worst edge reache
 
 ## Limitations
 
-The model is planar, frictionless, and neglects clearance take-up, notch self-contact, external loads, manufacturing tolerances and 3D stress concentrations. Multi-segment assembly is a kinematic stack of planar sections with a roll angle; it does not model the interaction of a distal pair’s transmission with the proximal lumen. The printed transmission mesh uses a 5° angular approximation of the exact laser pattern, and rows within a discrete bending segment are aligned so the posts stay continuous. These are engineering aids, not substitutes for FEA and physical testing.
+The analytic design model and the default Cosserat preview are planar and frictionless, and neglect clearance take-up, notch self-contact, external loads, manufacturing tolerances and 3D stress concentrations. The optional full-3D Cosserat mode adds out-of-plane rod deformation and gravity, but not contact or friction. Multi-segment assembly is a kinematic stack of planar sections with a roll angle; it does not model the interaction of a distal pair’s transmission with the proximal lumen. The printed transmission mesh uses a 5° angular approximation of the exact laser pattern, and rows within a discrete bending segment are aligned so the posts stay continuous. These are engineering aids, not substitutes for FEA and physical testing.
 
 ## Project structure
 
@@ -107,8 +112,12 @@ src/core/
   fab/patterns.ts           unrolled laser patterns, SVG and DXF
   fab/transmission.ts       discrete/brickwork slot geometry shared by laser files and print meshes
   export/report.ts          HTML report, CSV, JSON
+  cosserat/solver.ts        WASM rod-solver bridge and design mapping
+  cosserat/assembly.ts      rod output → 3D renderer assembly
 src/components/             React UI (2D shape, 3D, cross-section, pattern, fabricate, …)
 src/state/useProject.ts     undo/redo history and localStorage persistence
+src/wasm/pkg/               generated wasm-bindgen JS + wasm (committed)
+cosserat-wasm/              extracted Rust Cosserat crate and WASM wrapper
 tests/                      section, mechanics/design, mesh, export tests
 ```
 
@@ -119,6 +128,7 @@ npm run dev        start the Vite dev server
 npm run build      typecheck + production build
 npm run preview    serve the production build
 npm test           Vitest suite (model, validation against the paper, meshes, exports)
+npm run wasm:build rebuild the Rust Cosserat solver WASM (Rust + wasm-bindgen-cli required)
 ```
 
 ## References
@@ -126,4 +136,4 @@ npm test           Vitest suite (model, validation against the paper, meshes, ex
 - K. Oliver-Butler, J. A. Childs, A. Daniel, D. C. Rucker, “Concentric Push–Pull Robots: Planar Modeling and Design,” *IEEE Transactions on Robotics* 38(2), 2022.
 - K. T. Dang, S. Qiu, C. Hatch, P. Connor, T. Qin, R. Alterovitz, R. J. Webster III, D. C. Rucker, “Design of Transmission Tubes for Surgical Concentric Push-Pull Robots,” *ISMR*, 2024.
 
-The two PDFs are included in this folder for reference.
+The two reference PDFs are kept locally for development and are not part of the public repository.

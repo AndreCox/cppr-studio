@@ -111,6 +111,12 @@ function pickState(res: SegmentResult, fraction: number): ActuationState | null 
   return best;
 }
 
+export interface RobotAssembly {
+  worldShape: [number, number, number][];
+  worldSegments: RobotResult['worldSegments'];
+  totalLength: number;
+}
+
 export interface AssemblyOptions {
   /** 1 = design actuation; negative values push the inner tubes */
   fraction?: number;
@@ -121,11 +127,7 @@ export function assembleRobot(
   project: Project,
   results: SegmentResult[],
   opts: AssemblyOptions = {},
-): {
-  worldShape: [number, number, number][];
-  worldSegments: RobotResult['worldSegments'];
-  totalLength: number;
-} {
+): RobotAssembly {
   const fraction = opts.fraction ?? 1;
   const segments = project.segments.filter((s) => s.enabled);
   const worldSegments: RobotResult['worldSegments'] = [];

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Project, RobotResult } from '../core/types';
 import { assembleRobot } from '../core/design/robot';
+import { buildCosseratAssembly } from '../core/cosserat/assembly';
+import type { CosseratResult, SolverMode } from '../core/cosserat/solver';
 import { IconButton } from './ui';
 
 import { SEGMENT_COLORS as COLORS } from '../lib/colors';
@@ -13,9 +15,14 @@ interface Props {
   fraction: number;
   selectedSegmentId: string;
   onSelectSegment: (id: string) => void;
+  solverMode: SolverMode;
+  cosserat: CosseratResult | null;
 }
 
-export function Robot3D({ project, result, fraction, selectedSegmentId, onSelectSegment }: Props) {
+export function Robot3D({
+  project, result, fraction, selectedSegmentId, onSelectSegment,
+  solverMode, cosserat,
+}: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -26,10 +33,15 @@ export function Robot3D({ project, result, fraction, selectedSegmentId, onSelect
   const [autoRotate, setAutoRotate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const assembly = useMemo(
+  const analyticAssembly = useMemo(
     () => assembleRobot(project, result.segments, { fraction }),
     [project, result.segments, fraction],
   );
+  const cosseratAssembly = useMemo(
+    () => (solverMode === 'cosserat' && cosserat ? buildCosseratAssembly(project, result, cosserat) : null),
+    [solverMode, cosserat, project, result],
+  );
+  const assembly = cosseratAssembly ?? analyticAssembly;
   const assemblyRef = useRef(assembly);
   assemblyRef.current = assembly;
 
@@ -261,7 +273,10 @@ export function Robot3D({ project, result, fraction, selectedSegmentId, onSelect
           })}
           <div className="item faint" style={{ marginTop: 2 }}>drag to orbit · scroll to zoom</div>
         </div>
+
+
       </div>
+
       <div className="view-note">
         <div className="legend">
           <span><span className="swatch" style={{ background: '#1e293b' }} />notch hinge</span>
