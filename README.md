@@ -18,9 +18,9 @@ A graphical design tool for **multi-section concentric push–pull robots (CPPRs
 | --- | --- |
 | ![Live STL preview](docs/screenshots/stl-preview.png) | ![Tip cross-pin](docs/screenshots/tip-cross-pin.png) |
 
-| Cosserat rod preview (WebAssembly) |
-| --- |
-| ![Cosserat rod preview](docs/screenshots/cosserat.png) |
+| Cosserat rod preview (WebAssembly) | Compare models |
+| --- | --- |
+| ![Cosserat rod preview](docs/screenshots/cosserat.png) | ![Compare models](docs/screenshots/compare-models.png) |
 
 | Design report |
 | --- |
@@ -46,6 +46,7 @@ Requires Node 18+ (developed on Node 24). The app is a static Vite/React/TypeScr
 - **Verification.** Strain utilisation per edge, depth caps, Euler buckling, self-contact limit, clearance, achievable curvature envelope, shape fit error, tip error and mass. The exact forward kinematics is solved at the design actuation and swept across a workspace for previews.
 - **Hand actuation.** Give each inner tube a solid proximal **handle extension** so it can be gripped and pulled by hand. It is included in the complete inner STL and laser pattern; align the **distal tips** during assembly.
 - **Tip cross-pin.** Optionally extend both tube tips with a short straight collar and a diametric cross-hole sized for 1.75 mm filament. The two openings are 180° apart; a pin through the assembled pair locks the tips together. Toggle it off, or customize the tip extension, hole diameter, hole distance from the tip and clocking angle. The extension and holes are included in the printed STLs, the laser patterns and the live viewer (green).
+- **Compare models.** A dedicated page overlays the target, analytic, Cosserat planar and on-demand full-3D centrelines for the selected segment, with tip error, normalized RMS, out-of-plane deflection, iterations, time and convergence. It highlights the closest model and updates the analytic/planar curves with the actuation slider.
 - **Cosserat preview.** The **Bending model** section in the right rail switches the 3D robot from the fast analytic model to the Rust Cosserat rod solver compiled to WebAssembly. It re-solves the designed notch depths and push/pull, reports convergence/iterations/time, and supports a planar (recommended) or full 3D + gravity mode.
 - **Live STL preview.** A dedicated viewer rebuilds the actual printable outer/inner tube meshes as you change settings. Switch Both/Outer/Inner and Complete/Tip-only, orbit/zoom, auto-rotate or fit; handle (purple), solid transmission (grey), flex transmission (blue) and active notches (orange) are color-coded, with the distal tips aligned and the inner exploded above the outer.
 - **Fabrication.** Binary STL for each tube in the print orientation (layers along the axis): **tip-only** files for the bending section and **complete-tube** files that include the transmission slots and the inner handle. Also a **tip-only build plate**, a **complete-tube build plate** (all full tubes in one STL), 1:1 unrolled SVG/DXF laser patterns, a printable HTML design report, notch CSV, full design JSON, and a **Download everything (.zip)** package containing all tubes, both plates, both laser files, the report, CSV, JSON and a README.
@@ -114,7 +115,8 @@ src/core/
   export/report.ts          HTML report, CSV, JSON
   cosserat/solver.ts        WASM rod-solver bridge and design mapping
   cosserat/assembly.ts      rod output → 3D renderer assembly
-src/components/             React UI (2D shape, 3D, cross-section, pattern, fabricate, …)
+  cosserat/compare.ts       target/model curve localization and error metrics
+src/components/             React UI (2D shape, 3D, compare models, cross-section, pattern, fabricate, …)
 src/state/useProject.ts     undo/redo history and localStorage persistence
 src/wasm/pkg/               generated wasm-bindgen JS + wasm (committed)
 cosserat-wasm/              extracted Rust Cosserat crate and WASM wrapper

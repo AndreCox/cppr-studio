@@ -28,12 +28,13 @@ interface Props {
   cosserat: CosseratResult | null;
   cosseratPending: boolean;
   cosseratError: string | null;
+  showBendingModel?: boolean;
 }
 
 export function Inspector({
   project, cfg, res, onChange, onMaterialChange, onDuplicate, onDelete, onMove, canMoveUp, canMoveDown,
   solverMode, onSolverMode, gravityEnabled, onGravityEnabled, planar, onPlanar,
-  cosserat, cosseratPending, cosseratError,
+  cosserat, cosseratPending, cosseratError, showBendingModel = true,
 }: Props) {
   const matO = findMaterial(project.materials, cfg.outerTube.materialId);
   const matI = findMaterial(project.materials, cfg.innerTube.materialId);
@@ -109,6 +110,7 @@ export function Inspector({
 
       <div className="sidebar-scroll">
 
+        {showBendingModel && (
         <Collapsible
           title="Bending model"
           badge={<Chip tone={solverMode === 'cosserat' ? (cosserat?.converged ? 'ok' : cosserat ? 'warn' : 'info') : 'gray'}>{solverMode === 'cosserat' ? 'Cosserat' : 'Analytic'}</Chip>}
@@ -151,6 +153,7 @@ export function Inspector({
             material for both tubes and averaged notch spacing; full 3D may take several seconds.
           </div>
         </Collapsible>
+        )}
         <Collapsible title="Target shape" badge={<Chip tone="info" icon="spline">κ</Chip>}>
           <SelectField
             label="Shape preset"

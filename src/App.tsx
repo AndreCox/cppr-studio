@@ -11,6 +11,7 @@ import { Inspector } from './components/Inspector';
 import { ShapeView } from './components/ShapeView';
 import { Robot3D } from './components/Robot3D';
 import { CrossSectionView } from './components/CrossSectionView';
+import { CompareView } from './components/CompareView';
 import { PatternView } from './components/PatternView';
 import { FabricateView } from './components/FabricateView';
 import { TubeViewer } from './components/TubeViewer';
@@ -20,16 +21,17 @@ import { ExamplesModal } from './components/ExamplesModal';
 import { Icon, useDebounced } from './components/ui';
 import { solveCosserat, type CosseratResult, type SolverMode } from './core/cosserat/solver';
 
-type View = 'shape' | 'robot' | 'section' | 'pattern' | 'tube' | 'fabricate';
+type View = 'shape' | 'robot' | 'compare' | 'section' | 'pattern' | 'tube' | 'fabricate';
 type BottomTab = 'notches' | 'charts' | 'diagnostics';
 
-const VIEWS: { id: View; label: string; icon: string }[] = [
-  { id: 'shape', label: 'Shape', icon: 'spline' },
-  { id: 'robot', label: '3D robot', icon: 'cube' },
-  { id: 'section', label: 'Cross-section', icon: 'crosshair' },
-  { id: 'pattern', label: 'Laser pattern', icon: 'zap' },
-  { id: 'tube', label: 'STL preview', icon: 'layers' },
-  { id: 'fabricate', label: 'Fabricate', icon: 'package' },
+const VIEWS: { id: View; label: string; short: string; icon: string }[] = [
+  { id: 'shape', label: 'Shape', short: 'Shape', icon: 'spline' },
+  { id: 'robot', label: '3D robot', short: '3D', icon: 'cube' },
+  { id: 'compare', label: 'Compare models', short: 'Compare', icon: 'chart' },
+  { id: 'section', label: 'Cross-section', short: 'Section', icon: 'crosshair' },
+  { id: 'pattern', label: 'Laser pattern', short: 'Pattern', icon: 'zap' },
+  { id: 'tube', label: 'STL preview', short: 'STL', icon: 'layers' },
+  { id: 'fabricate', label: 'Fabricate', short: 'Build', icon: 'package' },
 ];
 
 const round = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
@@ -345,7 +347,7 @@ export default function App() {
             <div className="viewtab-wrap tab-scroll">
               {VIEWS.map((v) => (
                 <button key={v.id} type="button" title={v.label} className={`view-tab tab-${v.id} ${view === v.id ? 'on' : ''}`} onClick={() => setView(v.id)}>
-                  <Icon name={v.icon} className="sm" /> {v.label}
+                  <Icon name={v.icon} className="sm" /> <span className="tab-label-full">{v.label}</span><span className="tab-label-short">{v.short}</span>
                 </button>
               ))}
             </div>
@@ -423,6 +425,16 @@ export default function App() {
                 cosserat={cosserat}
               />
             )}
+            {view === 'compare' && (
+              <CompareView
+                project={project}
+                result={result}
+                selected={selected}
+                res={selectedRes}
+                fraction={fraction}
+                onFraction={setFraction}
+              />
+            )}
             {view === 'section' && (
               <CrossSectionView cfg={selected} res={selectedRes} notchIndex={clampedNotch} onSelectNotch={setNotchIndex} />
             )}
@@ -443,7 +455,7 @@ export default function App() {
             )}
           </div>
 
-          {view !== 'fabricate' && view !== 'tube' && (
+          {view !== 'fabricate' && view !== 'tube' && view !== 'compare' && (
             <>
               <div className="resize-handle" onPointerDown={startResize} title="Drag to resize the results panel" />
               <BottomPanel
@@ -482,6 +494,7 @@ export default function App() {
           cosserat={cosserat}
           cosseratPending={cosseratPending}
           cosseratError={cosseratError}
+          showBendingModel={view !== 'compare'}
         />
       </div>
 

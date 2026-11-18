@@ -49,6 +49,13 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             and it may return a best-effort shape if it cannot converge). The rod model uses the outer-tube material for both tubes and
             averages the notch length/spacing because the design's notches vary slightly.
           </p>
+          <h3>Compare models</h3>
+          <p>
+            The <b>Compare models</b> tab overlays the target centreline, the analytic notch model, the Cosserat planar solution and the
+            on-demand full 3D solution for the selected segment. The table reports tip error, RMS (normalized by active length), out-of-plane
+            deflection, iterations, time and convergence, and highlights the closest model. The target and analytic curves follow the actuation
+            slider; the full 3D solve is computed only when you press the button because it is slower.
+          </p>
           <h3>Live STL preview</h3>
           <p>
             The <b>STL preview</b> tab renders the actual printable tube meshes and updates as you edit. It shows the outer and inner

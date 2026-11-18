@@ -111,6 +111,11 @@ function pickState(res: SegmentResult, fraction: number): ActuationState | null 
   return best;
 }
 
+/** Actuation state nearest the requested preview fraction. */
+export function actuationAt(res: SegmentResult, fraction: number): ActuationState | null {
+  return pickState(res, fraction);
+}
+
 export interface RobotAssembly {
   worldShape: [number, number, number][];
   worldSegments: RobotResult['worldSegments'];
