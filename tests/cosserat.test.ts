@@ -39,6 +39,18 @@ describe('Cosserat bridge', () => {
     expect(req.sections[0].push_pull_mm).toBeCloseTo(-result.segments[0].qDesign, 8);
     expect(req.sections[1].roll_before_deg).toBe(90);
     expect(req.sections[0].material.youngs_modulus_pa).toBeGreaterThan(1e8);
+
+    const single = buildCosseratRequest(project, result, {
+      fraction: 1,
+      gravityEnabled: false,
+      planar: true,
+      onlySegmentId: enabled[0].id,
+      centroidScale: 1.27,
+    });
+    const singleReq = single.request as { sections: unknown[]; centroid_scale?: number };
+    expect(single.segmentIds).toEqual([enabled[0].id]);
+    expect(singleReq.sections).toHaveLength(1);
+    expect(singleReq.centroid_scale).toBe(1.27);
   });
 
   it('places notch frames and tips in the renderer assembly', () => {

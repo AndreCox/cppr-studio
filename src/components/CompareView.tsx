@@ -172,6 +172,7 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
   const [threePending, setThreePending] = useState(false);
   const [threeError, setThreeError] = useState<string | null>(null);
   const [threeGravity, setThreeGravity] = useState(false);
+  const [paperCalibration, setPaperCalibration] = useState(false);
   const threeToken = useRef(0);
 
   useEffect(() => {
@@ -185,7 +186,7 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
     setPlanarPending(true);
     setPlanarError(null);
     const timer = window.setTimeout(() => {
-      solveCosserat(project, result, { fraction, gravityEnabled: false, planar: true })
+      solveCosserat(project, result, { fraction, gravityEnabled: false, planar: true, onlySegmentId: selected.id, centroidScale: paperCalibration ? 1.27 : 1 })
         .then((solved) => {
           if (cancelled) return;
           setPlanar(solved);
@@ -202,21 +203,21 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [project, result, res, fraction]);
+  }, [project, result, res, fraction, selected.id, paperCalibration]);
 
   useEffect(() => {
     threeToken.current += 1;
     setThree(null);
     setThreeError(null);
     setThreePending(false);
-  }, [project, fraction, threeGravity]);
+  }, [project, fraction, threeGravity, paperCalibration, selected.id]);
 
   const runFull3D = useCallback(() => {
     if (!res || !result.ok) return;
     const token = ++threeToken.current;
     setThreePending(true);
     setThreeError(null);
-    solveCosserat(project, result, { fraction, gravityEnabled: threeGravity, planar: false })
+    solveCosserat(project, result, { fraction, gravityEnabled: threeGravity, planar: false, onlySegmentId: selected.id, centroidScale: paperCalibration ? 1.27 : 1 })
       .then((solved) => {
         if (token !== threeToken.current) return;
         setThree(solved);
@@ -228,7 +229,7 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
         setThreePending(false);
         setThreeError(error instanceof Error ? error.message : String(error));
       });
-  }, [project, result, res, fraction, threeGravity]);
+  }, [project, result, res, fraction, threeGravity, selected.id, paperCalibration]);
 
   const target = useMemo(() => (res ? targetCurve(res) : []), [res]);
   const analytic = useMemo(() => (res ? analyticCurve(res, fraction) : []), [res, fraction]);
@@ -347,7 +348,7 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
             <span className="compare-segment">{selected.name}</span>
           </div>
           <p>
-            Target vs the analytic notch model vs the Cosserat rod solver. Planar is automatic; full 3D is on demand.
+            Selected section vs the analytic notch model vs the Cosserat rod solver. Planar is automatic; full 3D is on demand.
           </p>
         </div>
         <div className="compare-actuation" title="Actuation preview for all model curves">
@@ -370,6 +371,7 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
             {threePending ? 'Solving full 3D…' : three ? 'Refresh full 3D' : 'Run full 3D'}
           </Button>
           <Toggle label="Gravity" checked={threeGravity} onChange={setThreeGravity} disabled={threePending} hint="Include self-weight in the on-demand full-3D solve" />
+          <Toggle label="Paper fD 1.27" checked={paperCalibration} onChange={setPaperCalibration} disabled={planarPending || threePending} hint="Use the paper's printed-prototype centroid calibration factor" />
         </div>
       </div>
 
@@ -431,8 +433,9 @@ export function CompareView({ project, result, selected, res, fraction, onFracti
         <div className="compare-note">
           <b>Target</b> is the designed centreline. <b>Analytic</b> uses the fast notch model at the selected fraction.
           <b> Cosserat planar</b> is the paper's 2D rod reduction over the designed notch depths; <b>full 3D</b> adds
-          out-of-plane deformation and optional gravity. The rod model uses the outer-tube material for both tubes and
-          averages the notch length/spacing. Errors are normalized by the active length.
+          out-of-plane deformation and optional gravity. Both Cosserat rows solve the selected section on its own; the 3D robot
+          view solves the assembled chain. The rod model uses the outer-tube material for both tubes and averages the notch
+          length/spacing. Errors are normalized by the active length.
         </div>
       </div>
     </div>

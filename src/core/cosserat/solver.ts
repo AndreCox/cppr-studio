@@ -40,6 +40,10 @@ export interface CosseratOptions {
    * out-of-plane loads but is slower and can need more iterations.
    */
   planar: boolean;
+  /** The paper's printed-prototype calibration factor for the kinematic offsets. */
+  centroidScale?: number;
+  /** Compare a single section instead of the assembled chain. */
+  onlySegmentId?: string;
 }
 
 interface RawFrame {
@@ -86,6 +90,7 @@ export function buildCosseratRequest(
   const sections: unknown[] = [];
   const segmentIds: string[] = [];
   for (const cfg of project.segments.filter((s) => s.enabled)) {
+    if (opts.onlySegmentId && cfg.id !== opts.onlySegmentId) continue;
     const res: SegmentResult | undefined = result.segments.find((r) => r.segmentId === cfg.id);
     if (!res || res.notches.length === 0) continue;
     const n = res.notches.length;
@@ -125,6 +130,7 @@ export function buildCosseratRequest(
       samples_per_notch: 6,
       curvature_modes: opts.planar ? 2 : 3,
       torsion_modes: opts.planar ? 0 : 2,
+      centroid_scale: opts.centroidScale ?? 1.0,
     },
     segmentIds,
   };

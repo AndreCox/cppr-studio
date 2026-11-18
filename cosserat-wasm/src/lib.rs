@@ -56,6 +56,8 @@ struct SolveInput {
     torsion_modes: Option<usize>,
     #[serde(default)]
     planar: Option<bool>,
+    #[serde(default)]
+    centroid_scale: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -135,6 +137,9 @@ pub fn solve_chain(input_json: &str) -> Result<String, JsValue> {
     }
     if let Some(planar) = input.planar {
         settings.planar = planar;
+    }
+    if let Some(scale) = input.centroid_scale {
+        settings.centroid_scale = scale.clamp(0.5, 2.0);
     }
     let mut solver = CosseratBackend::new(settings);
     let descriptors = solver.controls(&design);

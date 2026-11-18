@@ -54,7 +54,9 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             The <b>Compare models</b> tab overlays the target centreline, the analytic notch model, the Cosserat planar solution and the
             on-demand full 3D solution for the selected segment. The table reports tip error, RMS (normalized by active length), out-of-plane
             deflection, iterations, time and convergence, and highlights the closest model. The target and analytic curves follow the actuation
-            slider; the full 3D solve is computed only when you press the button because it is slower.
+            slider; the full 3D solve is computed only when you press the button because it is slower. The comparison solves the selected
+            section on its own; the <b>3D robot</b> view solves the assembled chain. A <b>Paper fD 1.27</b> toggle applies the paper's
+            printed-prototype centroid calibration.
           </p>
           <h3>Live STL preview</h3>
           <p>
