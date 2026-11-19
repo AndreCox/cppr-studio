@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Project, RobotResult, SegmentConfig, SegmentResult } from '../core/types';
 import { buildAssemblyStl, buildSegmentTubes, type SegmentFab } from '../core/fab/build';
 import { meshToStlBinary } from '../core/fab/tubeMesh';
+import { meshToStep, type StepPart } from '../core/export/step';
 import { effectiveTransmissionPattern, transmissionDesign } from '../core/fab/transmission';
 import { buildLaserPatterns, patternToDxf, patternToSvg } from '../core/fab/patterns';
 import { buildReportHtml, designJson, notchesCsv } from '../core/export/report';
@@ -89,6 +90,41 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
     downloadBlob(name, new Blob([meshToStlBinary(coupler.mesh, coupler.label, coupler.od / 2) as unknown as BlobPart], { type: 'model/stl' }));
   };
 
+  const stepParts = (): StepPart[] => rows.flatMap((row) => {
+    const parts: StepPart[] = [
+      { name: row.full.outer.label, mesh: row.full.outer.mesh },
+      { name: row.full.inner.label, mesh: row.full.inner.mesh },
+    ];
+    if (row.full.couplers.outer) parts.push({ name: row.full.couplers.outer.label, mesh: row.full.couplers.outer.mesh });
+    if (row.full.couplers.inner) parts.push({ name: row.full.couplers.inner.label, mesh: row.full.couplers.inner.mesh });
+    return parts;
+  });
+
+  const downloadStep = (row: Row, which: 'outer' | 'inner') => {
+    const tube = which === 'outer' ? row.full.outer : row.full.inner;
+    const step = meshToStep([{ name: tube.label, mesh: tube.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}.step`, tube.label);
+    downloadBlob(`${slug}_${slugify(row.cfg.name)}_${which}.step`, new Blob([step], { type: 'model/step' }));
+  };
+
+  const downloadCouplerStep = (row: Row, which: 'outer' | 'inner') => {
+    const coupler = which === 'outer' ? row.full.couplers.outer : row.full.couplers.inner;
+    if (!coupler) return;
+    const step = meshToStep([{ name: coupler.label, mesh: coupler.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`, coupler.label);
+    downloadBlob(`${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`, new Blob([step], { type: 'model/step' }));
+  };
+
+  const downloadAssemblyStep = () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const parts = stepParts();
+      const step = meshToStep(parts, `${slug}_robot_parts.step`, `${project.name} parts`);
+      downloadBlob(`${slug}_robot_parts.step`, new Blob([step], { type: 'model/step' }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const downloadAll = async () => {
     if (busy) return;
     setBusy(true);
@@ -114,9 +150,20 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
               content: meshToStlBinary(coupler.mesh, coupler.label, coupler.od / 2),
             });
           }
+          entries.push({
+            name: `step/${slug}_${slugify(row.cfg.name)}_${which}.step`,
+            content: meshToStep([{ name: ft.label, mesh: ft.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}.step`, ft.label),
+          });
+          if (coupler) {
+            entries.push({
+              name: `step/${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`,
+              content: meshToStep([{ name: coupler.label, mesh: coupler.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`, coupler.label),
+            });
+          }
         }
       }
     }
+
     if (tipPlate) entries.push({ name: `stl/${slug}_tip_print_plate.stl`, content: tipPlate.content });
     const completePlate = buildCompletePlate();
     if (completePlate) entries.push({ name: `stl/${slug}_complete_print_plate.stl`, content: completePlate.content });
@@ -150,7 +197,7 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
         <div className="pill-row" style={{ marginTop: 10 }}>
           <Chip tone={result.ok ? 'ok' : 'err'} icon={result.ok ? 'check' : 'error'}>{result.ok ? 'Design complete' : `${result.errors.length} blocking issue${result.errors.length === 1 ? '' : 's'}`}</Chip>
           <Chip tone="gray" icon="cube">{rows.length} tube pair{rows.length === 1 ? '' : 's'}</Chip>
-          <Chip tone="gray" icon="layers">{rows.length * 4} tube STLs + 2 plates</Chip>
+          <Chip tone="gray" icon="layers">{rows.length * 4} STLs · STEP · 2 plates</Chip>
           <Chip tone="gray" icon="zap">{patterns.reduce((a, p) => a + p.regions.length + p.holes.length, 0)} laser cuts</Chip>
         </div>
       </div>
@@ -228,6 +275,8 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
                     <div className="flex gap4">
                       <Button size="xs" variant="primary" onClick={() => downloadStl(r, 'outer', true)} disabled={r.full === r.active}>Outer</Button>
                       <Button size="xs" variant="primary" onClick={() => downloadStl(r, 'inner', true)} disabled={r.full === r.active}>Inner</Button>
+                      <Button size="xs" variant="ghost" onClick={() => downloadStep(r, 'outer')}>Outer STEP</Button>
+                      <Button size="xs" variant="ghost" onClick={() => downloadStep(r, 'inner')}>Inner STEP</Button>
                     </div>
                   </div>
                   {(r.full.couplers.outer || r.full.couplers.inner) && (
@@ -238,6 +287,8 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
                       <div className="flex gap4">
                         {r.full.couplers.outer && <Button size="xs" variant="ghost" onClick={() => downloadCoupler(r, 'outer')}>Outer</Button>}
                         {r.full.couplers.inner && <Button size="xs" variant="ghost" onClick={() => downloadCoupler(r, 'inner')}>Inner</Button>}
+                        {r.full.couplers.outer && <Button size="xs" variant="ghost" onClick={() => downloadCouplerStep(r, 'outer')}>Outer STEP</Button>}
+                        {r.full.couplers.inner && <Button size="xs" variant="ghost" onClick={() => downloadCouplerStep(r, 'inner')}>Inner STEP</Button>}
                       </div>
                     </div>
                   )}
@@ -295,6 +346,22 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
           </div>
           <div className="callout" style={{ marginTop: 4, fontSize: 10.5 }}>
             Chord-cut designs show the outer window outline, but their flat notch floor needs a 4-axis/milling cut. Use the radial cut profile for a 3-axis laser.
+          </div>
+        </div>
+
+        <div className="fab-card">
+          <h3><Icon name="cube" /> CAD / STEP</h3>
+          <p>
+            Export the complete tubes and couplers as a <b>faceted AP214 STEP</b> for SolidWorks. Each part is a separate solid body in
+            print orientation; use the STEP buttons on a complete tube/coupler for a single-part file, or export all parts as one multibody file.
+          </p>
+          <div className="actions">
+            <Button size="sm" icon="download" onClick={downloadAssemblyStep} disabled={busy}>{busy ? 'Preparing…' : 'All parts STEP'}</Button>
+          </div>
+          <div className="meta">
+            Tessellated from the same mesh as the STLs: planar faces, closed solids, millimetre units. All-parts files can be large
+            (tens to ~100 MB); per-part STEP files are much smaller. For a smooth NURBS B-rep, rebuild the tube in SolidWorks from the
+            exported dimensions.
           </div>
         </div>
 
@@ -372,6 +439,7 @@ function readme(name: string, rows: Row[]): string {
     '          *_coupler.stl is a separate sleeve joining a solid extension to its transmission.',
     '          *_tip_print_plate.stl lays out all tip-only tubes.',
     '          *_complete_print_plate.stl lays out all complete tubes (transmission + handles). Long tubes may need splitting.',
+    '  step/   Faceted AP214 STEP parts (complete tubes and couplers, print orientation) for SolidWorks.',
     '  laser/  Unrolled 1:1 SVG and DXF patterns. The red CUT layer includes active notches and transmission slots.',
     '          The pattern starts after each tube’s solid extension; align distal tips when assembling. Couplers are separate printed parts.',
     '  docs/   Printable design report and the notch schedule as CSV.',
