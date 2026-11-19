@@ -59,7 +59,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           </p>
           <h3>Fabrication and STEP</h3>
           <p>
-            The Fabricate view exports the complete tubes as a faceted AP214 STEP for SolidWorks. Each part is a separate solid
+            The Fabricate view exports the complete tubes as a planar-faced AP214 STEP for SolidWorks. Each part is a separate solid
             body in print orientation with millimetre units; per-part files are smaller, while <b>All parts STEP</b> is one multibody file.
             The STEP is tessellated, not a NURBS B-rep; rebuild the tube in SolidWorks from the dimensions if you need smooth surfaces.
           </p>

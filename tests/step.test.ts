@@ -23,7 +23,7 @@ describe('STEP export', () => {
     const step = meshToStep([{ name: 'tetra', mesh }], 'tetra.step', 'tetra');
     expect(step.startsWith('ISO-10303-21;')).toBe(true);
     expect(step).toContain("FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));");
-    expect(step).toContain('FACETED_BREP');
+    expect(step).toContain('MANIFOLD_SOLID_BREP');
     expect(step).toContain('CLOSED_SHELL');
     expect(step).toContain('SI_UNIT(.MILLI.,.METRE.)');
     expect((step.match(/ADVANCED_FACE/g) ?? []).length).toBe(4);
@@ -32,7 +32,7 @@ describe('STEP export', () => {
 
   it('adds more than one solid for a multi-part assembly', () => {
     const step = meshToStep([{ name: 'a', mesh }, { name: 'b', mesh }], 'assembly.step', 'assembly');
-    expect((step.match(/FACETED_BREP/g) ?? []).length).toBe(2);
+    expect((step.match(/MANIFOLD_SOLID_BREP/g) ?? []).length).toBe(2);
   });
 });
 
@@ -65,7 +65,7 @@ describe('STEP export of a printed tube', () => {
     const step = meshToStep([{ name: 'outer', mesh: fab.outer.mesh }], 'outer.step', 'outer');
     const faces = fab.outer.mesh.triangles.length / 3;
     expect((step.match(/ADVANCED_FACE/g) ?? []).length).toBe(faces);
-    expect(step).toContain('FACETED_BREP');
+    expect(step).toContain('MANIFOLD_SOLID_BREP');
     expect(step.length).toBeGreaterThan(1000);
   });
 });

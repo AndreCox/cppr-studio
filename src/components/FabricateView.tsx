@@ -314,9 +314,9 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
             <Button size="sm" icon="download" onClick={downloadAssemblyStep} disabled={busy}>{busy ? 'Preparing…' : 'All parts STEP'}</Button>
           </div>
           <div className="meta">
-            Tessellated from the same mesh as the STLs: planar faces, closed solids, millimetre units. All-parts files can be large
-            (tens to ~100 MB); per-part STEP files are much smaller. For a smooth NURBS B-rep, rebuild the tube in SolidWorks from the
-            exported dimensions.
+            AP214 planar-faced B-rep from the same mesh as the STLs: closed solids, millimetre units. Per-part files are about 10 MB;
+            the all-parts multibody file can exceed 200 MB. For a smooth NURBS B-rep, rebuild the tube in SolidWorks from the exported
+            dimensions.
           </div>
         </div>
 
