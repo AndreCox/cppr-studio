@@ -44,6 +44,8 @@ export interface CosseratOptions {
   centroidScale?: number;
   /** Compare a single section instead of the assembled chain. */
   onlySegmentId?: string;
+  /** World-frame wrench `[mx, my, mz, fx, fy, fz]` applied at the distal tip. */
+  tipLoadWorld?: [number, number, number, number, number, number];
 }
 
 interface RawFrame {
@@ -131,6 +133,7 @@ export function buildCosseratRequest(
       curvature_modes: opts.planar ? 2 : 3,
       torsion_modes: opts.planar ? 0 : 2,
       centroid_scale: opts.centroidScale ?? 1.0,
+      tip_load_world: opts.tipLoadWorld ?? [0, 0, 0, 0, 0, 0],
     },
     segmentIds,
   };

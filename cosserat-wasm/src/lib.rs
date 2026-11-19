@@ -58,6 +58,9 @@ struct SolveInput {
     planar: Option<bool>,
     #[serde(default)]
     centroid_scale: Option<f64>,
+    /// World-frame wrench [mx, my, mz, fx, fy, fz] at the distal tip.
+    #[serde(default)]
+    tip_load_world: Option<[f64; 6]>,
 }
 
 #[derive(Debug, Serialize)]
@@ -145,6 +148,9 @@ pub fn solve_chain(input_json: &str) -> Result<String, JsValue> {
     let descriptors = solver.controls(&design);
     let mut controls = solver.default_controls(&design);
     controls.gravity_enabled = input.gravity_enabled;
+    if let Some(load) = input.tip_load_world {
+        controls.tip_load_world = load;
+    }
     for (index, section) in input.sections.iter().enumerate() {
         let key = format!("section.{index}.push_pull");
         controls

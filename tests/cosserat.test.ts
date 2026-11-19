@@ -101,3 +101,17 @@ describe('Cosserat bridge', () => {
     expect(assembly.worldShape.at(-1)).toEqual([10, 0, 80]);
   });
 });
+
+describe('tip stiffness request', () => {
+  it('passes a world-frame tip wrench to the solver', () => {
+    const project = PRINTED_DEMO();
+    const result = designProject(project);
+    const built = buildCosseratRequest(project, result, {
+      fraction: 1,
+      gravityEnabled: false,
+      planar: false,
+      tipLoadWorld: [0, 0, 0, 0.1, 0, 0],
+    });
+    expect((built.request as { tip_load_world: number[] }).tip_load_world).toEqual([0, 0, 0, 0.1, 0, 0]);
+  });
+});

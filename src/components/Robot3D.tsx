@@ -20,11 +20,17 @@ interface Props {
   solverMode: SolverMode;
   cosserat: CosseratResult | null;
   theme: 'light' | 'dark';
+  /** Tip force arrow, in world coordinates. */
+  tipForce?: { vector: [number, number, number]; magnitude: number };
+  /** Unloaded tip position for the baseline marker and displacement line. */
+  baselineTip?: [number, number, number];
+  /** Unloaded centreline, drawn as a dashed ghost. */
+  baselineShape?: [number, number, number][];
 }
 
 export function Robot3D({
   project, result, fraction, selectedSegmentId, onSelectSegment,
-  solverMode, cosserat, theme,
+  solverMode, cosserat, theme, tipForce, baselineTip, baselineShape,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -388,7 +394,50 @@ export function Robot3D({
     });
 
 
-  }, [assembly, project.segments, selectedSegmentId]);
+    // Tip-load overlays: unloaded ghost, baseline tip, displacement and force arrow.
+    if (baselineShape && baselineShape.length > 1) {
+      const ghostPts = baselineShape.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+      const ghostGeo = new THREE.BufferGeometry().setFromPoints(ghostPts);
+      const ghost = new THREE.Line(
+        ghostGeo,
+        new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 2.2, gapSize: 1.6, transparent: true, opacity: 0.72 }),
+      );
+      ghost.computeLineDistances();
+      group.add(ghost);
+    }
+    const loadedTip = assembly.worldSegments[assembly.worldSegments.length - 1]?.tip;
+    if (baselineTip) {
+      const base = new THREE.Vector3(baselineTip[0], baselineTip[1], baselineTip[2]);
+      const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(1.1, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.8 }),
+      );
+      marker.position.copy(base);
+      group.add(marker);
+      if (loadedTip) {
+        const loaded = new THREE.Vector3(loadedTip[0], loadedTip[1], loadedTip[2]);
+        const dispGeo = new THREE.BufferGeometry().setFromPoints([base, loaded]);
+        const disp = new THREE.Line(
+          dispGeo,
+          new THREE.LineDashedMaterial({ color: 0xf59e0b, dashSize: 1.5, gapSize: 1.1, transparent: true, opacity: 0.85 }),
+        );
+        disp.computeLineDistances();
+        group.add(disp);
+      }
+    }
+    if (tipForce && loadedTip) {
+      const dir = new THREE.Vector3(...tipForce.vector);
+      if (dir.lengthSq() > 1e-12) {
+        const origin = new THREE.Vector3(loadedTip[0], loadedTip[1], loadedTip[2]);
+        const arrow = new THREE.ArrowHelper(dir.normalize(), origin, 22, 0xf59e0b, 5.5, 3.2);
+        const line = arrow.line.material as THREE.LineBasicMaterial;
+        line.transparent = true;
+        line.opacity = 0.95;
+        group.add(arrow);
+      }
+    }
+
+  }, [assembly, project.segments, selectedSegmentId, tipForce, baselineTip, baselineShape]);
 
   useEffect(() => {
     if (controlsRef.current) controlsRef.current.autoRotate = autoRotate;

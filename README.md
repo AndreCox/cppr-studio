@@ -30,6 +30,10 @@ A graphical design tool for **multi-section concentric push–pull robots (CPPRs
 | --- | --- |
 | ![Connected transmission](docs/screenshots/transmission-coupler.png) | ![Design report](docs/screenshots/report.png) |
 
+| Tip stiffness |
+| --- |
+| ![Tip stiffness](docs/screenshots/tip-stiffness.png) |
+
 ## Quick start
 
 ```bash
@@ -57,6 +61,7 @@ Requires Node 18+ (developed on Node 24). The app is a static Vite/React/TypeScr
 - **Connected transmission extension.** Add a solid proximal extension to the outer and/or inner tube and bridge the joint to the existing transmission with a separate coupler sleeve. The extension is included in the complete tube and laser pattern; the coupler is its own STL in the individual, complete-plate and everything exports.
 - **3D robot view.** The actual notched tube meshes — transmission slots and notch cuts included — are bent into the final assembled configuration. Each distal pair's transmission is routed back through the upstream assembled path, so it bends inside the proximal section rather than running straight behind it. Environment-lit PBR materials, soft contact shadows, a solid selected pair with ghosted unselected pairs, plus Iso/Front/Side/Top presets with grid and axes toggles.
 - **Light/dark theme.** Follows the system preference on first load, remembers your choice, and themes the UI, 2D shape, patterns, charts and 3D stage.
+- **Tip stiffness.** Apply an adjustable world-frame point force at the distal tip and solve the whole Cosserat chain against an unloaded baseline. Read tip displacement, directional stiffness, compliance, force/deflection angle and tip rotation, with planar-2D and full-3D options.
 - **Usability.** Live 2D shape canvas with pan/zoom, 3D orbit view, cross-section inspector with neutral axes and strain edges, notch table and charts, examples, undo/redo, project import/export and autosave.
 
 ## How to use it

@@ -17,17 +17,20 @@ import { PatternView } from './components/PatternView';
 import { FabricateView } from './components/FabricateView';
 import { TubeViewer } from './components/TubeViewer';
 import { BottomPanel } from './components/BottomPanel';
+import { StiffnessPanel } from './components/StiffnessPanel';
 import { HelpModal } from './components/HelpModal';
 import { ExamplesModal } from './components/ExamplesModal';
 import { Icon, useDebounced } from './components/ui';
 import { solveCosserat, type CosseratResult, type SolverMode } from './core/cosserat/solver';
+import { solveTipStiffness, tipForceVector, type TipForce, type TipStiffnessResult } from './core/cosserat/stiffness';
 
-type View = 'shape' | 'robot' | 'compare' | 'section' | 'pattern' | 'tube' | 'fabricate';
+type View = 'shape' | 'robot' | 'stiffness' | 'compare' | 'section' | 'pattern' | 'tube' | 'fabricate';
 type BottomTab = 'notches' | 'charts' | 'diagnostics';
 
 const VIEWS: { id: View; label: string; short: string; icon: string }[] = [
   { id: 'shape', label: 'Shape', short: 'Shape', icon: 'spline' },
   { id: 'robot', label: '3D robot', short: '3D', icon: 'cube' },
+  { id: 'stiffness', label: 'Tip stiffness', short: 'Stiff', icon: 'gauge' },
   { id: 'compare', label: 'Compare models', short: 'Compare', icon: 'chart' },
   { id: 'section', label: 'Cross-section', short: 'Section', icon: 'crosshair' },
   { id: 'pattern', label: 'Laser pattern', short: 'Pattern', icon: 'zap' },
@@ -48,6 +51,11 @@ export default function App() {
   const [fraction, setFraction] = useState(1);
   const [solverMode, setSolverMode] = useState<SolverMode>('analytic');
   const [gravityEnabled, setGravityEnabled] = useState(false);
+  const [tipForce, setTipForce] = useState<TipForce>({ magnitude: 0.1, azimuthDeg: 0, elevationDeg: 0 });
+  const [stiffnessPlanar, setStiffnessPlanar] = useState(true);
+  const [stiffness, setStiffness] = useState<TipStiffnessResult | null>(null);
+  const [stiffnessPending, setStiffnessPending] = useState(false);
+  const [stiffnessError, setStiffnessError] = useState<string | null>(null);
   const [cosseratPlanar, setCosseratPlanar] = useState(true);
   const [cosserat, setCosserat] = useState<CosseratResult | null>(null);
   const [cosseratPending, setCosseratPending] = useState(false);
@@ -97,6 +105,42 @@ export default function App() {
       window.clearTimeout(timer);
     };
   }, [view, solverMode, designInput, result, fraction, gravityEnabled, cosseratPlanar]);
+
+  useEffect(() => {
+    if (view !== 'stiffness') return;
+    if (!result.ok) {
+      setStiffness(null);
+      setStiffnessPending(false);
+      setStiffnessError('Fix the design checks before calculating tip stiffness.');
+      return;
+    }
+    let cancelled = false;
+    setStiffnessPending(true);
+    setStiffnessError(null);
+    const timer = window.setTimeout(() => {
+      solveTipStiffness(designInput, result, { fraction, gravityEnabled, plan2d: stiffnessPlanar, force: tipForce })
+        .then((solved) => {
+          if (cancelled) return;
+          setStiffness(solved);
+          setStiffnessPending(false);
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          setStiffnessPending(false);
+          setStiffnessError(e instanceof Error ? e.message : 'Tip-load solve failed.');
+        });
+    }, 100);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [view, designInput, result, fraction, gravityEnabled, stiffnessPlanar, tipForce]);
+
+  const tipArrow = useMemo(
+    () => ({ vector: stiffness?.forceVector ?? tipForceVector(tipForce), magnitude: tipForce.magnitude }),
+    [stiffness, tipForce],
+  );
+
 
   const selected: SegmentConfig =
     project.segments.find((s) => s.id === selectedId) ?? project.segments[0];
@@ -359,7 +403,7 @@ export default function App() {
             </div>
           </div>
 
-          {(view === 'shape' || view === 'robot') && (
+          {(view === 'shape' || view === 'robot' || view === 'stiffness') && (
             <div className="context-bar">
               <div className="view-tools">
                 {view === 'robot' && solverMode === 'cosserat' && cosseratStatus && (
@@ -367,7 +411,7 @@ export default function App() {
                     <span className="solver-dot" /> Cosserat · {cosseratStatus.label}
                   </span>
                 )}
-                {(view === 'shape' || view === 'robot') && (
+                {(view === 'shape' || view === 'robot' || view === 'stiffness') && (
                     <div className="actuation" title="Actuation preview: negative pushes the inner tube, positive pulls it">
                       <span className="lbl">Actuation</span>
                       <input
@@ -400,7 +444,12 @@ export default function App() {
                       ><Icon name="zap" className="sm" /></button>
                     </>
                   )}
-                  {fractionState && !fractionState.converged && (view === 'shape' || view === 'robot') && (
+                  {view === 'stiffness' && (
+                    <span className="solver-chip info" title="Full 3D Cosserat chain with an external tip force">
+                      <span className="solver-dot" /> Cosserat 3D · tip load
+                    </span>
+                  )}
+                  {fractionState && !fractionState.converged && (view === 'shape' || view === 'robot' || view === 'stiffness') && (
                     <span className="chip warn" title="The solver reached the self-contact / workspace boundary">boundary</span>
                   )}
               </div>
@@ -430,6 +479,21 @@ export default function App() {
                 solverMode={solverMode}
                 cosserat={cosserat}
                 theme={theme}
+              />
+            )}
+            {view === 'stiffness' && (
+              <Robot3D
+                project={project}
+                result={result}
+                fraction={fraction}
+                selectedSegmentId={selected?.id ?? ''}
+                onSelectSegment={selectSegment}
+                solverMode="cosserat"
+                cosserat={stiffness?.loaded ?? null}
+                theme={theme}
+                tipForce={tipArrow}
+                baselineTip={stiffness?.baselineTip}
+                baselineShape={stiffness?.baseline.centerline}
               />
             )}
             {view === 'compare' && (
@@ -462,7 +526,7 @@ export default function App() {
             )}
           </div>
 
-          {view !== 'fabricate' && view !== 'tube' && view !== 'compare' && (
+          {view !== 'fabricate' && view !== 'tube' && view !== 'compare' && view !== 'stiffness' && (
             <>
               <div className="resize-handle" onPointerDown={startResize} title="Drag to resize the results panel" />
               <BottomPanel
@@ -481,28 +545,45 @@ export default function App() {
             </>
           )}
         </div>
-        <Inspector
-          project={project}
-          cfg={selected}
-          res={selectedRes}
-          onChange={updateSelected}
-          onMaterialChange={updateMaterial}
-          onDuplicate={duplicateSegment}
-          onDelete={() => deleteSegment(selected.id)}
-          onMove={(dir) => moveSegment(selected.id, dir)}
-          canMoveUp={segIndex > 0}
-          canMoveDown={segIndex >= 0 && segIndex < project.segments.length - 1}
-          solverMode={solverMode}
-          onSolverMode={setSolverMode}
-          gravityEnabled={gravityEnabled}
-          onGravityEnabled={setGravityEnabled}
-          planar={cosseratPlanar}
-          onPlanar={setCosseratPlanar}
-          cosserat={cosserat}
-          cosseratPending={cosseratPending}
-          cosseratError={cosseratError}
-          showBendingModel={view !== 'compare'}
-        />
+        {view === 'stiffness' ? (
+          <StiffnessPanel
+            project={project}
+            result={result}
+            force={tipForce}
+            onForce={(patch) => setTipForce((f) => ({ ...f, ...patch }))}
+            stiffness={stiffness}
+            pending={stiffnessPending}
+            error={stiffnessError}
+            gravityEnabled={gravityEnabled}
+            onGravityEnabled={setGravityEnabled}
+            plan2d={stiffnessPlanar}
+            onPlan2d={setStiffnessPlanar}
+            fraction={fraction}
+          />
+        ) : (
+          <Inspector
+            project={project}
+            cfg={selected}
+            res={selectedRes}
+            onChange={updateSelected}
+            onMaterialChange={updateMaterial}
+            onDuplicate={duplicateSegment}
+            onDelete={() => deleteSegment(selected.id)}
+            onMove={(dir) => moveSegment(selected.id, dir)}
+            canMoveUp={segIndex > 0}
+            canMoveDown={segIndex >= 0 && segIndex < project.segments.length - 1}
+            solverMode={solverMode}
+            onSolverMode={setSolverMode}
+            gravityEnabled={gravityEnabled}
+            onGravityEnabled={setGravityEnabled}
+            planar={cosseratPlanar}
+            onPlanar={setCosseratPlanar}
+            cosserat={cosserat}
+            cosseratPending={cosseratPending}
+            cosseratError={cosseratError}
+            showBendingModel={view !== 'compare'}
+          />
+        )}
       </div>
 
       <input
