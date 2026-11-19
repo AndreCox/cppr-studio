@@ -420,13 +420,6 @@ export function Robot3D({
       base.castShadow = true;
       base.receiveShadow = true;
       group.add(base);
-      const bezel = new THREE.Mesh(
-        new THREE.TorusGeometry(Math.max(2.2, enabled[0].outerTube.od * 1.02), Math.max(0.08, enabled[0].outerTube.od * 0.05), 8, 48),
-        new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.3, metalness: 0.5 }),
-      );
-      bezel.rotation.x = Math.PI / 2;
-      bezel.position.set(0, 0, -Math.max(0.6, enabled[0].outerTube.od * 0.18) + Math.max(0.5, enabled[0].outerTube.od * 0.2));
-      group.add(bezel);
     }
   }, [assembly, project.segments, selectedSegmentId]);
 
