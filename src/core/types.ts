@@ -51,22 +51,18 @@ export interface TipFeatureConfig {
 export type TransmissionPattern = 'solid' | 'brickwork' | 'discrete';
 
 export interface TransmissionCoupler {
-  /** Add a separate sleeve joining the solid extension to the transmission. */
+  /** Add a solid proximal end section to the selected tube(s). */
   enabled: boolean;
-  /** Which tube(s) receive the coupler. */
+  /** Which tube(s) receive the solid end section. */
   tubes: 'outer' | 'inner' | 'both';
-  /** Overall sleeve length along the tube, mm. */
+  /** Solid length added at the proximal end, after the transmission, mm. */
   length: number;
-  /** Sleeve wall thickness, mm. */
-  wall: number;
-  /** Radial clearance over the tube OD, mm. */
-  clearance: number;
 }
 
 export interface TransmissionConfig {
   /** Length of un-notched transmission tube behind the active section, mm */
   length: number;
-  /** Solid proximal extension + coupler joining it to the transmission. */
+  /** Solid proximal end section added to the selected tube(s). */
   coupler: TransmissionCoupler;
   /** Pattern on the outer tube's transmission */
   pattern: TransmissionPattern;

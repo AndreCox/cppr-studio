@@ -22,7 +22,7 @@ export const defaultSettings = (): ProjectSettings => ({
 
 export const defaultTransmission = (): TransmissionConfig => ({
   length: 900,
-  coupler: { enabled: false, tubes: 'both', length: 14, wall: 0.8, clearance: 0.15 },
+  coupler: { enabled: false, tubes: 'both', length: 14 },
   pattern: 'discrete',
   innerPattern: 'same',
   cutsPerRev: 6,

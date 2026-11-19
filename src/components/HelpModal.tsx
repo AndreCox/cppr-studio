@@ -32,8 +32,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             does). A proximal pair used as a hand-held handle can keep both transmissions solid. The outer and inner patterns are
             set independently, and the inner tube can have a solid proximal handle extension for hand actuation; align the distal
             tips when assembling. A solid proximal extension can be added to the outer and/or inner tube and joined to the
-            existing transmission with a separate <b>coupler sleeve</b>; the extension is part of the complete tube, while the sleeve
-            is exported as its own STL.
+            after the transmission as a <b>solid proximal end section</b>; it is part of the same complete tube and laser pattern, with
+            no separate coupler part.
           </p>
           <h3>Tip cross-pin</h3>
           <p>
@@ -59,7 +59,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           </p>
           <h3>Fabrication and STEP</h3>
           <p>
-            The Fabricate view exports the complete tubes and couplers as a faceted AP214 STEP for SolidWorks. Each part is a separate solid
+            The Fabricate view exports the complete tubes as a faceted AP214 STEP for SolidWorks. Each part is a separate solid
             body in print orientation with millimetre units; per-part files are smaller, while <b>All parts STEP</b> is one multibody file.
             The STEP is tessellated, not a NURBS B-rep; rebuild the tube in SolidWorks from the dimensions if you need smooth surfaces.
           </p>

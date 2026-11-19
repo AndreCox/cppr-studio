@@ -291,7 +291,7 @@ export function Inspector({
               precision={0}
               step={5}
               hint="beyond the base"
-              tooltip="A solid proximal extension of the outer tube, joined to the transmission. Enable the transmission coupler to add a sleeve over the joint. It is included in the complete outer STL and laser pattern; tip-only files omit it."
+              tooltip="A solid proximal extension of the outer tube. Enable the solid end section in Transmission to add more solid length; it is included in the complete outer STL, STEP and laser pattern."
             />
             <NumberField
               label="Inner handle extension"
@@ -306,27 +306,9 @@ export function Inspector({
               tooltip="Extra proximal length of the inner tube beyond the outer tube, so it can be gripped and pulled by hand. It does not change the active kinematics; it is included in the complete inner STL and the laser pattern. Align the distal tips during assembly."
             />
           </div>
-          {(() => {
-            const extO = Math.max(0, cfg.outerExtension ?? 0);
-            const extI = Math.max(0, cfg.innerExtension || 0);
-            const c = cfg.transmission.coupler;
-            if (!c?.enabled) return null;
-            const innerCouplerOd = cfg.innerTube.od + 2 * (c.clearance + c.wall);
-            const outerId = cfg.outerTube.od - 2 * cfg.outerTube.wall;
-            const innerFits = innerCouplerOd <= outerId - 2 * cfg.minClearance + 1e-6;
-            return (
-              <div className="callout" style={{ marginBottom: 8 }}>
-                <div className="tiny">
-                  Coupler applies to {c.tubes === 'both' ? 'both tubes' : `${c.tubes} tube`}. 
-                  {extO <= 0 && extI <= 0 ? ' Add a solid extension above so there is a joint to bridge.' : ''}
-                  {c.tubes !== 'outer' && extI > 0 && !innerFits ? ` Inner coupler OD ${innerCouplerOd.toFixed(2)} mm exceeds the outer bore clearance; the sleeve will not pass inside the outer tube.` : ''}
-                </div>
-              </div>
-            );
-          })()}
           <div className="callout" style={{ marginBottom: 8 }}>
             <div className="tiny faint">
-              The solid extension is the proximal solid transmission tube. The coupler is a separate printed sleeve that bridges the extension and the existing transmission, so the two tubes are mechanically connected. The coupler is exported as its own STL and is not a laser pattern cut.
+              Solid extensions are part of the tube itself: active section → transmission → solid proximal section. Enable the solid end section under Transmission to add more solid length without a separate coupler part.
             </div>
           </div>
           <div className="callout" style={{ marginBottom: 8 }}>
@@ -583,30 +565,37 @@ export function Inspector({
           })()}
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
             <div className="tiny faint" style={{ fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 6 }}>
-              Solid extension coupler
+              Solid proximal end section
             </div>
             <Toggle
-              label="Add coupler sleeve"
+              label="Add solid end section"
               checked={!!transmission.coupler?.enabled}
               onChange={(v) => onChange({ transmission: { ...transmission, coupler: { ...transmission.coupler, enabled: v } } })}
-              hint="A separate sleeve bridges a solid extension and the transmission"
+              hint="Adds solid tube at the proximal end, after the transmission"
             />
             {transmission.coupler?.enabled && (
               <>
                 <SelectField
-                  label="Coupler tubes"
+                  label="Section tubes"
                   value={transmission.coupler.tubes}
                   onChange={(v) => onChange({ transmission: { ...transmission, coupler: { ...transmission.coupler, tubes: v as 'outer' | 'inner' | 'both' } } })}
                   options={[{ value: 'both', label: 'Outer + inner' }, { value: 'outer', label: 'Outer only' }, { value: 'inner', label: 'Inner only' }]}
                 />
-                <div className="row2">
-                  <NumberField label="Coupler length" value={transmission.coupler.length} onChange={(v) => onChange({ transmission: { ...transmission, coupler: { ...transmission.coupler, length: v } } })} unit="mm" min={4} max={100} precision={1} step={1} />
-                  <NumberField label="Sleeve wall" value={transmission.coupler.wall} onChange={(v) => onChange({ transmission: { ...transmission, coupler: { ...transmission.coupler, wall: v } } })} unit="mm" min={0.2} max={10} precision={2} step={0.1} />
-                </div>
-                <NumberField label="Radial clearance" value={transmission.coupler.clearance} onChange={(v) => onChange({ transmission: { ...transmission, coupler: { ...transmission.coupler, clearance: v } } })} unit="mm" min={0} max={2} precision={2} step={0.05} hint="over tube OD" />
+                <NumberField
+                  label="Section length"
+                  value={transmission.coupler.length}
+                  onChange={(v) => onChange({ transmission: { ...transmission, coupler: { ...transmission.coupler, length: v } } })}
+                  unit="mm"
+                  min={1}
+                  max={600}
+                  precision={1}
+                  step={1}
+                  hint="added proximal solid"
+                />
                 <div className="callout">
                   <div className="tiny">
-                    Requires a solid extension on the selected tube(s). The coupler sits across the joint; if the inner coupler cannot pass inside the outer tube, reduce its wall/clearance or omit the inner coupler.
+                    The solid section is added to the proximal end of the selected tube(s), after the transmission. It is part of
+                    the same complete-tube STL/STEP and laser pattern — no separate sleeve. It adds to the solid extensions in Tubes &amp; materials.
                   </div>
                 </div>
               </>

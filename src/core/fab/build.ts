@@ -21,8 +21,6 @@ export interface TubeBuild {
   totalLength: number;
   od: number;
   id: number;
-  /** Axial centre of a coupler sleeve in the tube's proximal coordinate. */
-  jointCenter?: number;
 }
 
 export interface SegmentFab {
@@ -38,8 +36,6 @@ export interface SegmentFab {
   innerExtension: number;
   /** solid proximal extension of the outer tube, mm */
   outerExtension: number;
-  /** coupler sleeves joining the solid extensions to the transmissions */
-  couplers: { outer: TubeBuild | null; inner: TubeBuild | null };
   leadIn: number;
   /** outer tube total length (transmission + active) */
   totalLength: number;
@@ -85,8 +81,12 @@ export function buildSegmentTubes(
 ): SegmentFab {
   const fullTube = opts.includeTransmission !== false;
   const T = fullTube ? Math.max(0, cfg.transmission.length) : 0;
-  const outerExtension = fullTube ? Math.max(0, cfg.outerExtension || 0) : 0;
-  const innerExtension = fullTube ? Math.max(0, cfg.innerExtension || 0) : 0;
+  const coupler = cfg.transmission.coupler;
+  const solidEnd = Math.max(0, coupler?.length ?? 0);
+  const solidOuter = fullTube && coupler?.enabled && (coupler.tubes === 'outer' || coupler.tubes === 'both') ? solidEnd : 0;
+  const solidInner = fullTube && coupler?.enabled && (coupler.tubes === 'inner' || coupler.tubes === 'both') ? solidEnd : 0;
+  const outerExtension = fullTube ? Math.max(0, cfg.outerExtension || 0) + solidOuter : 0;
+  const innerExtension = fullTube ? Math.max(0, cfg.innerExtension || 0) + solidInner : 0;
   const leadIn = Math.min(3, Math.max(0.5, (res.notches[0]?.c ?? 1) / 2));
   const activeStart = T + leadIn;
   const totalLength = activeStart + res.activeTubeLength;
@@ -133,27 +133,6 @@ export function buildSegmentTubes(
   const innerMesh = innerExt ? mergeMeshes(innerBase, innerExt) : innerBase;
   const tipExtension = cfg.tipFeature?.enabled ? Math.max(0, cfg.tipFeature.extension) : 0;
 
-  const coupler = cfg.transmission.coupler;
-  const makeCoupler = (which: 'outer' | 'inner', extension: number): TubeBuild | null => {
-    if (!fullTube || !coupler?.enabled || extension <= 1e-6) return null;
-    if (coupler.tubes !== 'both' && coupler.tubes !== which) return null;
-    const length = Math.max(2, coupler.length);
-    const id = (which === 'outer' ? outerGeom.od : innerGeom.od) + 2 * Math.max(0, coupler.clearance);
-    const od = id + 2 * Math.max(0.1, coupler.wall);
-    const mesh = buildTubeMesh({ od, id }, 'radial', [], length);
-    return {
-      label: `${cfg.name} · ${which} transmission coupler`,
-      mesh,
-      notchCount: 0,
-      transmissionCuts: 0,
-      tipExtension: 0,
-      totalLength: length,
-      od,
-      id,
-      jointCenter: extension,
-    };
-  };
-
   return {
     outer: {
       label: `${cfg.name} · outer tube`,
@@ -180,7 +159,6 @@ export function buildSegmentTubes(
     innerActiveStart,
     outerExtension,
     innerExtension,
-    couplers: { outer: makeCoupler('outer', outerExtension), inner: makeCoupler('inner', innerExtension) },
     leadIn,
     totalLength: outerTotalLength + tipExtension,
     innerTotalLength: innerTotalLength + tipExtension,
@@ -213,17 +191,6 @@ export function buildStlParts(
         bytes: content.byteLength,
       });
     }
-    for (const [kind, coupler] of [['outer', fab.couplers.outer], ['inner', fab.couplers.inner]] as const) {
-      if (!coupler) continue;
-      const content = meshToStlBinary(coupler.mesh, coupler.label, coupler.od / 2);
-      out.push({
-        label: coupler.label,
-        fileName: `cppr_${slug}_${kind}_coupler.stl`,
-        content,
-        triangles: coupler.mesh.triangles.length / 3,
-        bytes: content.byteLength,
-      });
-    }
   }
   return out;
 }
@@ -240,7 +207,7 @@ export function buildAssemblyStl(
   let y = 2;
   let rowH = 0;
   for (const { fab } of parts) {
-    for (const tube of [fab.outer, fab.inner, fab.couplers.outer, fab.couplers.inner].filter((t): t is TubeBuild => Boolean(t))) {
+    for (const tube of [fab.outer, fab.inner]) {
       const width = tube.od;
       if (x + width + 2 > bedWidth) {
         x = 2;

@@ -538,22 +538,10 @@ export function designSegment(cfg: SegmentConfig, materials: Material[]): Segmen
     );
   }
   const coupler = cfg.transmission.coupler;
-  if (coupler?.enabled) {
-    const extO = Math.max(0, cfg.outerExtension || 0);
-    const extI = Math.max(0, cfg.innerExtension || 0);
-    if (coupler.tubes !== 'inner' && extO <= 0) warnings.push('Transmission coupler is enabled for the outer tube but no outer solid extension is set.');
-    if (coupler.tubes !== 'outer' && extI <= 0) warnings.push('Transmission coupler is enabled for the inner tube but no inner solid extension is set.');
-    const outerId = cfg.outerTube.od - 2 * cfg.outerTube.wall;
-    const innerCouplerOd = cfg.innerTube.od + 2 * (coupler.clearance + coupler.wall);
-    if (coupler.tubes !== 'outer' && innerCouplerOd > outerId - 2 * cfg.minClearance + 1e-6) {
-      warnings.push(
-        `Inner transmission coupler OD ${innerCouplerOd.toFixed(2)} mm exceeds the outer tube bore clearance; ` +
-          'reduce its wall/clearance or use an outer-only coupler.',
-      );
-    }
+  if (coupler?.enabled && coupler.length > 0) {
     info.push(
-      `Transmission coupler: ${coupler.length.toFixed(0)} mm separate sleeve on the ${coupler.tubes === 'both' ? 'outer and inner' : coupler.tubes} tube(s), ` +
-        `wall ${coupler.wall.toFixed(2)} mm, clearance ${coupler.clearance.toFixed(2)} mm; exported as separate STL(s).`,
+      `Solid proximal end section: ${coupler.length.toFixed(0)} mm added to the ${coupler.tubes === 'both' ? 'outer and inner' : coupler.tubes} tube(s) ` +
+        'after the transmission. It is part of the complete tube, laser pattern and STEP/STL export; no separate sleeve.',
     );
   }
   if (cfg.transmission.pattern !== 'solid' && cfg.transmission.length > 0) {
@@ -664,9 +652,11 @@ export function tightestRadius(res: SegmentResult): number | null {
 /** Total tube length including the transmission section. */
 export function tubeLengths(cfg: SegmentConfig, res: SegmentResult): { outer: number; inner: number } {
   const trans = Math.max(0, cfg.transmission.length);
+  const c = cfg.transmission.coupler;
+  const solid = c?.enabled ? Math.max(0, c.length) : 0;
   return {
-    outer: res.activeTubeLength + trans + Math.max(0, cfg.outerExtension || 0),
-    inner: res.activeTubeLength + trans + Math.max(0, cfg.innerExtension || 0),
+    outer: res.activeTubeLength + trans + Math.max(0, cfg.outerExtension || 0) + (c?.tubes !== 'inner' ? solid : 0),
+    inner: res.activeTubeLength + trans + Math.max(0, cfg.innerExtension || 0) + (c?.tubes !== 'outer' ? solid : 0),
   };
 }
 

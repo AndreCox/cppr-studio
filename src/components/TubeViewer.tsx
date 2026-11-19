@@ -16,7 +16,6 @@ const SECTION = {
   gap: '#cbd5e1',
   active: '#fb923c',
   tip: '#10b981',
-  coupler: '#0d9488',
 };
 
 // THREE.Color already converts CSS sRGB values to the linear working space.
@@ -27,7 +26,6 @@ const C = {
   gap: new THREE.Color(SECTION.gap),
   active: new THREE.Color(SECTION.active),
   tip: new THREE.Color(SECTION.tip),
-  coupler: new THREE.Color(SECTION.coupler),
 };
 
 const CYCLIC = new THREE.Matrix4().set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1);
@@ -85,8 +83,8 @@ export function TubeViewer({ cfg, res, designing = false, theme = 'light' }: Pro
   }, [cfg, res, mode]);
 
   const txLength = mode === 'complete' ? cfg.transmission.length : 0;
-  const handle = mode === 'complete' ? Math.max(0, cfg.innerExtension || 0) : 0;
-  const outerHandle = mode === 'complete' ? Math.max(0, cfg.outerExtension || 0) : 0;
+  const handle = mode === 'complete' ? Math.max(0, fab?.innerExtension ?? cfg.innerExtension ?? 0) : 0;
+  const outerHandle = mode === 'complete' ? Math.max(0, fab?.outerExtension ?? cfg.outerExtension ?? 0) : 0;
   const outerFlex = effectiveTransmissionPattern(cfg, 'outer') !== 'solid';
   const innerFlex = effectiveTransmissionPattern(cfg, 'inner') !== 'solid';
   const error = res?.errors[0] ?? buildError ?? canvasError;
@@ -231,13 +229,6 @@ export function TubeViewer({ cfg, res, designing = false, theme = 'light' }: Pro
             <span className="tube-sep">·</span>
             <span className="faint">⌀{cfg.innerTube.od.toFixed(1)} · {fab ? fab.inner.totalLength.toFixed(0) : '—'} mm</span>
           </div>
-          {cfg.transmission.coupler.enabled && mode === 'complete' && (fab?.couplers.outer || fab?.couplers.inner) && (
-            <div className="tube-row">
-              <span className="tube-tube-label">Joint</span>
-              <span className="tube-swatch" style={{ background: SECTION.coupler }} />
-              coupler sleeve{cfg.transmission.coupler.tubes === 'both' ? 's' : ''} · {cfg.transmission.coupler.length.toFixed(0)} mm
-            </div>
-          )}
           <div className="faint">
             {fab ? (fab.outer.transmissionCuts + fab.inner.transmissionCuts) : 0} transmission slots · distal tips aligned · handle left / active tip right · drag to orbit, scroll to zoom
           </div>
@@ -426,14 +417,6 @@ function TubeCanvas({ fab, cfg, tube, autoRotate, fitNonce, focusTip, onError, t
       outer.visible = tube !== 'inner';
       inner.visible = tube !== 'outer';
       state.content.add(outer, inner);
-      const addCoupler = (coupler: TubeBuild | null, stackZ: number, visible: boolean) => {
-        if (!coupler) return;
-        const group = createCouplerGroup(coupler, maxLen, stackZ);
-        group.visible = visible;
-        state.content.add(group);
-      };
-      addCoupler(fab.couplers.outer, outerZ, tube !== 'inner');
-      addCoupler(fab.couplers.inner, innerZ, tube !== 'outer');
     }
 
     const key = `${tube}|${fitNonce}`;
@@ -518,25 +501,5 @@ function createTubeGroup(
   // raw +z (tube length) became +x; raw +y became +z. Rest the tube on z=0
   // (or stack the inner above the outer in the exploded view).
   group.position.set(maxLen - tube.totalLength, 0, stackZ);
-  return group;
-}
-function createCouplerGroup(coupler: TubeBuild, maxLen: number, stackZ: number): THREE.Group {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(coupler.mesh.positions), 3));
-  geometry.setIndex(new THREE.Uint32BufferAttribute(new Uint32Array(coupler.mesh.triangles), 1));
-  const colors = new Float32Array(coupler.mesh.positions.length);
-  for (let i = 0; i < colors.length; i += 3) {
-    colors[i] = C.coupler.r;
-    colors[i + 1] = C.coupler.g;
-    colors[i + 2] = C.coupler.b;
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.applyMatrix4(CYCLIC);
-  geometry.computeVertexNormals();
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide });
-  const group = new THREE.Group();
-  group.add(new THREE.Mesh(geometry, material));
-  const center = coupler.jointCenter ?? 0;
-  group.position.set(maxLen - center - coupler.totalLength / 2, 0, stackZ);
   return group;
 }

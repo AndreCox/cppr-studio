@@ -46,8 +46,7 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
   const totalTriangles = useMemo(
     () => rows.reduce((a, r) => a
       + r.active.outer.mesh.triangles.length / 3 + r.active.inner.mesh.triangles.length / 3
-      + r.full.outer.mesh.triangles.length / 3 + r.full.inner.mesh.triangles.length / 3
-      + (r.full.couplers.outer?.mesh.triangles.length ?? 0) / 3 + (r.full.couplers.inner?.mesh.triangles.length ?? 0) / 3, 0),
+      + r.full.outer.mesh.triangles.length / 3 + r.full.inner.mesh.triangles.length / 3, 0),
     [rows],
   );
   const tipPlate = useMemo(
@@ -83,20 +82,11 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
     downloadBlob(name, new Blob([meshToStlBinary(tube.mesh, tube.label, tube.od / 2) as unknown as BlobPart], { type: 'model/stl' }));
   };
 
-  const downloadCoupler = (row: Row, which: 'outer' | 'inner') => {
-    const coupler = which === 'outer' ? row.full.couplers.outer : row.full.couplers.inner;
-    if (!coupler) return;
-    const name = `${slug}_${slugify(row.cfg.name)}_${which}_coupler.stl`;
-    downloadBlob(name, new Blob([meshToStlBinary(coupler.mesh, coupler.label, coupler.od / 2) as unknown as BlobPart], { type: 'model/stl' }));
-  };
-
   const stepParts = (): StepPart[] => rows.flatMap((row) => {
     const parts: StepPart[] = [
       { name: row.full.outer.label, mesh: row.full.outer.mesh },
       { name: row.full.inner.label, mesh: row.full.inner.mesh },
     ];
-    if (row.full.couplers.outer) parts.push({ name: row.full.couplers.outer.label, mesh: row.full.couplers.outer.mesh });
-    if (row.full.couplers.inner) parts.push({ name: row.full.couplers.inner.label, mesh: row.full.couplers.inner.mesh });
     return parts;
   });
 
@@ -104,13 +94,6 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
     const tube = which === 'outer' ? row.full.outer : row.full.inner;
     const step = meshToStep([{ name: tube.label, mesh: tube.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}.step`, tube.label);
     downloadBlob(`${slug}_${slugify(row.cfg.name)}_${which}.step`, new Blob([step], { type: 'model/step' }));
-  };
-
-  const downloadCouplerStep = (row: Row, which: 'outer' | 'inner') => {
-    const coupler = which === 'outer' ? row.full.couplers.outer : row.full.couplers.inner;
-    if (!coupler) return;
-    const step = meshToStep([{ name: coupler.label, mesh: coupler.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`, coupler.label);
-    downloadBlob(`${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`, new Blob([step], { type: 'model/step' }));
   };
 
   const downloadAssemblyStep = () => {
@@ -143,23 +126,10 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
             name: `stl/${slug}_${slugify(row.cfg.name)}_${which}_full_flex.stl`,
             content: meshToStlBinary(ft.mesh, ft.label, ft.od / 2),
           });
-          const coupler = which === 'outer' ? row.full.couplers.outer : row.full.couplers.inner;
-          if (coupler) {
-            entries.push({
-              name: `stl/${slug}_${slugify(row.cfg.name)}_${which}_coupler.stl`,
-              content: meshToStlBinary(coupler.mesh, coupler.label, coupler.od / 2),
-            });
-          }
           entries.push({
             name: `step/${slug}_${slugify(row.cfg.name)}_${which}.step`,
             content: meshToStep([{ name: ft.label, mesh: ft.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}.step`, ft.label),
           });
-          if (coupler) {
-            entries.push({
-              name: `step/${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`,
-              content: meshToStep([{ name: coupler.label, mesh: coupler.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}_coupler.step`, coupler.label),
-            });
-          }
         }
       }
     }
@@ -213,7 +183,7 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
           <h3><Icon name="cube" /> 3D printing</h3>
           <p>
             Print each tube horizontally with the layers running along the axis. <b>Complete tube</b> files include the transmission
-            section <b>and</b> the active notch pattern; solid proximal extensions are included, and any coupler sleeves are separate parts. <b>Tip-only</b>
+            section <b>and</b> the active notch pattern; solid proximal extensions and solid end sections are part of the complete tube. <b>Tip-only</b>
             files omit the transmission. Align the distal tips when assembling; the inner handle then protrudes behind the base. The full-tube mesh uses a 5° angular approximation of the laser pattern.
           </p>
           {tipPlate && (() => {
@@ -243,30 +213,28 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
                       <div className="fab-item-title">{r.cfg.name}</div>
                       <div className="faint tiny">
                         tip {r.active.outer.totalLength.toFixed(0)} mm · full outer {r.full.outer.totalLength.toFixed(0)} mm
-                        {r.full.inner.totalLength !== r.full.outer.totalLength ? ` · full inner ${r.full.inner.totalLength.toFixed(0)} mm (+${r.cfg.innerExtension} handle)` : ''}
-                        {(r.cfg.outerExtension ?? 0) > 0 ? ` · +${r.cfg.outerExtension} outer extension` : ''}
-                        {r.full.couplers.outer || r.full.couplers.inner ? ` · ${r.cfg.transmission.coupler.length} mm coupler` : ''}
+                        {r.full.inner.totalLength !== r.full.outer.totalLength ? ` · full inner ${r.full.inner.totalLength.toFixed(0)} mm` : ''}
+                        {r.full.outerExtension > 0 ? ` · +${r.full.outerExtension} solid outer` : ''}
+                        {r.full.innerExtension > 0 ? ` · +${r.full.innerExtension} solid inner` : ''}
                         {nSlots > 0 ? ` · ${nSlots} transmission slots` : r.cfg.transmission.pattern === 'solid' ? ' · solid transmission' : ''}{r.cfg.tipFeature?.enabled ? ` · +${r.cfg.tipFeature.extension} tip cross-pin` : ''}
                       </div>
                     </div>
                   </div>
                   <SectionMap
                     tube="Outer"
-                    extension={r.cfg.outerExtension ?? 0}
+                    extension={r.full.outerExtension}
                     transmission={r.cfg.transmission.length}
                     active={r.res.activeTubeLength}
                     flex={effectiveTransmissionPattern(r.cfg, 'outer') !== 'solid'}
                     tipExtension={r.cfg.tipFeature?.enabled ? r.cfg.tipFeature.extension : 0}
-                    coupler={!!r.full.couplers.outer}
                   />
                   <SectionMap
                     tube="Inner"
-                    extension={r.cfg.innerExtension}
+                    extension={r.full.innerExtension}
                     transmission={r.cfg.transmission.length}
                     active={r.res.activeTubeLength}
                     flex={effectiveTransmissionPattern(r.cfg, 'inner') !== 'solid'}
                     tipExtension={r.cfg.tipFeature?.enabled ? r.cfg.tipFeature.extension : 0}
-                    coupler={!!r.full.couplers.inner}
                   />
                   <div className="flex gap4" style={{ justifyContent: 'space-between' }}>
                     <span className="faint tiny" style={{ width: 116, lineHeight: 1.25 }}>
@@ -279,19 +247,6 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
                       <Button size="xs" variant="ghost" onClick={() => downloadStep(r, 'inner')}>Inner STEP</Button>
                     </div>
                   </div>
-                  {(r.full.couplers.outer || r.full.couplers.inner) && (
-                    <div className="flex gap4" style={{ justifyContent: 'space-between' }}>
-                      <span className="faint tiny" style={{ width: 116, lineHeight: 1.25 }}>
-                        Coupler<br /><span style={{ fontSize: 9 }}>separate sleeve</span>
-                      </span>
-                      <div className="flex gap4">
-                        {r.full.couplers.outer && <Button size="xs" variant="ghost" onClick={() => downloadCoupler(r, 'outer')}>Outer</Button>}
-                        {r.full.couplers.inner && <Button size="xs" variant="ghost" onClick={() => downloadCoupler(r, 'inner')}>Inner</Button>}
-                        {r.full.couplers.outer && <Button size="xs" variant="ghost" onClick={() => downloadCouplerStep(r, 'outer')}>Outer STEP</Button>}
-                        {r.full.couplers.inner && <Button size="xs" variant="ghost" onClick={() => downloadCouplerStep(r, 'inner')}>Inner STEP</Button>}
-                      </div>
-                    </div>
-                  )}
                   <div className="flex gap4" style={{ justifyContent: 'space-between' }}>
                     <span className="faint tiny" style={{ width: 116, lineHeight: 1.25 }}>
                       Tip only<br /><span style={{ fontSize: 9 }}>no transmission</span>
@@ -352,8 +307,8 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
         <div className="fab-card">
           <h3><Icon name="cube" /> CAD / STEP</h3>
           <p>
-            Export the complete tubes and couplers as a <b>faceted AP214 STEP</b> for SolidWorks. Each part is a separate solid body in
-            print orientation; use the STEP buttons on a complete tube/coupler for a single-part file, or export all parts as one multibody file.
+            Export the complete tubes as a <b>faceted AP214 STEP</b> for SolidWorks. Each part is a separate solid body in print orientation;
+            use the STEP buttons on a complete tube for a single-part file, or export all parts as one multibody file.
           </p>
           <div className="actions">
             <Button size="sm" icon="download" onClick={downloadAssemblyStep} disabled={busy}>{busy ? 'Preparing…' : 'All parts STEP'}</Button>
@@ -399,14 +354,13 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
   );
 }
 
-function SectionMap({ tube, extension, transmission, active, flex, tipExtension = 0, coupler = false }: {
+function SectionMap({ tube, extension, transmission, active, flex, tipExtension = 0 }: {
   tube: string;
   extension: number;
   transmission: number;
   active: number;
   flex: boolean;
   tipExtension?: number;
-  coupler?: boolean;
 }) {
   const total = Math.max(1, extension + transmission + active + tipExtension);
   const pct = (n: number) => `${(n / total) * 100}%`;
@@ -414,13 +368,12 @@ function SectionMap({ tube, extension, transmission, active, flex, tipExtension 
     <div>
       <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', background: '#e2e8f0' }}>
         {extension > 0 && <div style={{ width: pct(extension), background: '#a78bfa' }} title={`${tube} solid extension ${extension} mm`} />}
-        {coupler && extension > 0 && <div style={{ width: 3, background: '#0d9488' }} title={`${tube} coupler sleeve at the joint`} />}
         <div style={{ width: pct(transmission), background: flex ? '#60a5fa' : '#94a3b8' }} title={`${tube} transmission ${transmission} mm (${flex ? 'flex' : 'solid'})`} />
         <div style={{ width: pct(active), background: '#fb923c' }} title={`${tube} active bending section ${active.toFixed(0)} mm`} />
         {tipExtension > 0 && <div style={{ width: pct(tipExtension), background: '#10b981' }} title={`${tube} tip cross-pin extension ${tipExtension} mm`} />}
       </div>
       <div className="faint" style={{ fontSize: 9.5, marginTop: 2 }}>
-        {tube}: {extension > 0 ? `${extension} solid extension · ` : ''}{transmission} {flex ? 'flex' : 'solid'} transmission · {active.toFixed(0)} active{tipExtension > 0 ? ` · +${tipExtension} tip pin` : ''}{coupler ? ' · coupler' : ''}
+        {tube}: {extension > 0 ? `${extension} solid extension · ` : ''}{transmission} {flex ? 'flex' : 'solid'} transmission · {active.toFixed(0)} active{tipExtension > 0 ? ` · +${tipExtension} tip pin` : ''}
       </div>
     </div>
   );
@@ -436,12 +389,11 @@ function readme(name: string, rows: Row[]): string {
     '  stl/    Binary STL files, print-oriented (tube axis along +Y, resting on the bed).',
     '          *_active.stl is the notched tip only (no transmission).',
     '          *_full_flex.stl is the complete tube: transmission slots + active notches (+ solid extensions).',
-    '          *_coupler.stl is a separate sleeve joining a solid extension to its transmission.',
-    '          *_tip_print_plate.stl lays out all tip-only tubes.',
+        '          *_tip_print_plate.stl lays out all tip-only tubes.',
     '          *_complete_print_plate.stl lays out all complete tubes (transmission + handles). Long tubes may need splitting.',
-    '  step/   Faceted AP214 STEP parts (complete tubes and couplers, print orientation) for SolidWorks.',
+    '  step/   Faceted AP214 STEP parts (complete tubes, print orientation) for SolidWorks.',
     '  laser/  Unrolled 1:1 SVG and DXF patterns. The red CUT layer includes active notches and transmission slots.',
-    '          The pattern starts after each tube’s solid extension; align distal tips when assembling. Couplers are separate printed parts.',
+    '          The pattern starts after each tube’s solid extension; align distal tips when assembling. Solid end sections are part of the complete tube.',
     '  docs/   Printable design report and the notch schedule as CSV.',
     '',
     'Segments:',
@@ -452,7 +404,7 @@ function readme(name: string, rows: Row[]): string {
         `cut ${r.cfg.cutType}, q_design ${r.res.qDesign.toFixed(3)} mm, tau ${r.res.tauDesign.toFixed(2)} N` +
         `${r.cfg.innerExtension > 0 ? `, inner handle +${r.cfg.innerExtension} mm` : ''}` +
         `${(r.cfg.outerExtension ?? 0) > 0 ? `, outer solid extension +${r.cfg.outerExtension} mm` : ''}` +
-        `${r.cfg.transmission.coupler.enabled ? `, ${r.cfg.transmission.coupler.length} mm transmission coupler` : ''}`,
+        `${r.cfg.transmission.coupler.enabled ? `, +${r.cfg.transmission.coupler.length} mm solid proximal end section` : ''}`,
     );
   }
   lines.push(
