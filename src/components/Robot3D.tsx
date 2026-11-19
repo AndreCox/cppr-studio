@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Project, RobotResult } from '../core/types';
 import { assembleRobot } from '../core/design/robot';
 import { buildCosseratAssembly } from '../core/cosserat/assembly';
@@ -29,8 +30,13 @@ export function Robot3D({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const robotGroupRef = useRef<THREE.Group | null>(null);
+  const gridRef = useRef<THREE.GridHelper | null>(null);
+  const axesRef = useRef<THREE.Group | null>(null);
   const fitRef = useRef<(() => void) | null>(null);
+  const viewRef = useRef<((preset: 'iso' | 'front' | 'side' | 'top') => void) | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [showAxes, setShowAxes] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const analyticAssembly = useMemo(
@@ -58,12 +64,21 @@ export function Robot3D({
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.setClearColor(0x000000, 0);
-    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.02;
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envScene = new RoomEnvironment();
+    scene.environment = pmrem.fromScene(envScene, 0.04).texture;
+    envScene.dispose();
+    pmrem.dispose();
     const camera = new THREE.PerspectiveCamera(38, mount.clientWidth / mount.clientHeight, 0.1, 5000);
     camera.up.set(0, 0, 1);
     camera.position.set(80, -110, 70);
@@ -77,19 +92,45 @@ export function Robot3D({
     controls.target.set(0, 0, 30);
     controlsRef.current = controls;
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x93a4bb, 1.1);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x8fa4bb, 0.8);
     scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xffffff, 2.0);
-    key.position.set(120, -160, 240);
+    const key = new THREE.DirectionalLight(0xffffff, 2.6);
+    key.position.set(130, -170, 250);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = -300;
+    key.shadow.camera.right = 300;
+    key.shadow.camera.top = 300;
+    key.shadow.camera.bottom = -300;
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 900;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.6;
+    const keyTarget = new THREE.Object3D();
+    keyTarget.position.set(0, 0, 40);
+    scene.add(keyTarget);
+    key.target = keyTarget;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xbfd4ff, 0.9);
-    fill.position.set(-140, 120, 80);
+    const fill = new THREE.DirectionalLight(0xbfd4ff, 1.25);
+    fill.position.set(-160, 140, 90);
     scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 1.1);
+    rim.position.set(-180, 130, 210);
+    scene.add(rim);
 
-    const grid = new THREE.GridHelper(400, 40, 0xc7d2e2, 0xe2e8f0);
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(340, 72),
+      new THREE.ShadowMaterial({ color: 0x0f172a, opacity: 0.18 }),
+    );
+    ground.position.z = -0.12;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(400, 40, 0xb8c6d8, 0xdde6f0);
     grid.rotation.x = Math.PI / 2;
     (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.55;
+    (grid.material as THREE.Material).opacity = 0.38;
+    gridRef.current = grid;
     scene.add(grid);
 
     const axes = new THREE.Group();
@@ -100,6 +141,7 @@ export function Robot3D({
     mkAxis(new THREE.Vector3(1, 0, 0), 0xef4444);
     mkAxis(new THREE.Vector3(0, 1, 0), 0x22c55e);
     mkAxis(new THREE.Vector3(0, 0, 1), 0x3b82f6);
+    axesRef.current = axes;
     scene.add(axes);
 
     const group = new THREE.Group();
@@ -125,7 +167,7 @@ export function Robot3D({
     });
     ro.observe(mount);
 
-    const fit = () => {
+    const setView = (preset: 'iso' | 'front' | 'side' | 'top') => {
       const current = assemblyRef.current;
       if (!current.worldShape.length) return;
       const box = new THREE.Box3();
@@ -134,7 +176,13 @@ export function Robot3D({
       const center = box.getCenter(new THREE.Vector3());
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       const r = Math.max(8, sphere.radius);
-      const dir = new THREE.Vector3(1.15, -1.6, 0.8).normalize();
+      const dirs = {
+        iso: new THREE.Vector3(1.15, -1.6, 0.8),
+        front: new THREE.Vector3(0.02, -1.9, 0.22),
+        side: new THREE.Vector3(1.9, 0.02, 0.22),
+        top: new THREE.Vector3(0.01, 0.01, 2.0),
+      };
+      const dir = dirs[preset].clone().normalize();
       controls.target.copy(center);
       camera.position.copy(center.clone().add(dir.multiplyScalar(r * 3.15)));
       camera.near = Math.max(0.05, r * 0.01);
@@ -142,7 +190,9 @@ export function Robot3D({
       camera.updateProjectionMatrix();
       controls.update();
     };
+    const fit = () => setView('iso');
     fitRef.current = fit;
+    viewRef.current = setView;
     fit();
 
     return () => {
@@ -163,6 +213,9 @@ export function Robot3D({
       cameraRef.current = null;
       controlsRef.current = null;
       robotGroupRef.current = null;
+      gridRef.current = null;
+      axesRef.current = null;
+      viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -190,35 +243,75 @@ export function Robot3D({
       if (pts.length < 2) return;
       const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.15);
       const radius = Math.max(0.15, cfg.outerTube.od / 2);
-      const tubeGeo = new THREE.TubeGeometry(curve, Math.max(24, pts.length * 2), radius, 20, false);
-      const mat = new THREE.MeshStandardMaterial({
+      const tubeGeo = new THREE.TubeGeometry(curve, Math.max(40, pts.length * 3), radius, 24, false);
+      if (selected) {
+        const outlineGeo = new THREE.TubeGeometry(curve, Math.max(32, pts.length * 2), radius + Math.max(0.07, radius * 0.035), 16, false);
+        const outline = new THREE.Mesh(
+          outlineGeo,
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color(COLORS[idx % COLORS.length]).multiplyScalar(0.42),
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0.34,
+          }),
+        );
+        group.add(outline);
+      }
+      const mat = new THREE.MeshPhysicalMaterial({
         color,
-        roughness: 0.42,
-        metalness: 0.08,
+        roughness: 0.3,
+        metalness: 0.12,
+        clearcoat: 0.42,
+        clearcoatRoughness: 0.38,
         transparent: !selected,
-        opacity: selected ? 1 : 0.72,
+        opacity: selected ? 1 : 0.5,
+        depthWrite: selected,
+        envMapIntensity: 1.15,
+        side: THREE.DoubleSide,
       });
       const mesh = new THREE.Mesh(tubeGeo, mat);
       mesh.userData.segmentId = cfg.id;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       group.add(mesh);
 
       for (const n of seg.notches) {
         const q = new THREE.Quaternion(n.quaternion[0], n.quaternion[1], n.quaternion[2], n.quaternion[3]);
         const tangent = new THREE.Vector3(0, 0, 1).applyQuaternion(q).normalize();
-        const torus = new THREE.TorusGeometry(radius * 1.005, Math.max(0.06, radius * 0.055), 8, 28);
-        const tmat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, metalness: 0.05 });
-        const ring = new THREE.Mesh(torus, tmat);
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(radius * 1.006, Math.max(0.07, radius * 0.05), 8, 32),
+          new THREE.MeshStandardMaterial({ color: 0x243044, roughness: 0.7, metalness: 0.2 }),
+        );
         ring.position.set(n.position[0], n.position[1], n.position[2]);
         ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+        ring.castShadow = true;
         group.add(ring);
+
+        const highlight = new THREE.Mesh(
+          new THREE.TorusGeometry(radius * 1.022, Math.max(0.018, radius * 0.011), 6, 32),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.24 }),
+        );
+        highlight.position.copy(ring.position);
+        highlight.quaternion.copy(ring.quaternion);
+        group.add(highlight);
       }
 
       const tip = new THREE.Mesh(
-        new THREE.SphereGeometry(radius * 1.01, 16, 12),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.1 }),
+        new THREE.SphereGeometry(radius * 1.015, 24, 16),
+        new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, metalness: 0.1, clearcoat: 0.5, clearcoatRoughness: 0.3 }),
       );
       tip.position.set(seg.tip[0], seg.tip[1], seg.tip[2]);
+      tip.castShadow = true;
+      tip.receiveShadow = true;
       group.add(tip);
+      const tipTangent = pts[pts.length - 1].clone().sub(pts[pts.length - 2]).normalize();
+      const tipRing = new THREE.Mesh(
+        new THREE.TorusGeometry(radius * 1.04, Math.max(0.02, radius * 0.02), 6, 28),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.3 }),
+      );
+      tipRing.position.copy(tip.position);
+      tipRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tipTangent);
+      group.add(tipRing);
     });
 
     // base disc
@@ -229,17 +322,34 @@ export function Robot3D({
         Math.max(1.2, enabled[0].outerTube.od * 0.35),
         32,
       );
-      const baseMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6, metalness: 0.2 });
+      const baseMat = new THREE.MeshPhysicalMaterial({ color: 0x64748b, roughness: 0.42, metalness: 0.28, clearcoat: 0.3 });
       const base = new THREE.Mesh(baseGeo, baseMat);
       base.rotation.x = Math.PI / 2;
       base.position.set(0, 0, -Math.max(0.6, enabled[0].outerTube.od * 0.18));
+      base.castShadow = true;
+      base.receiveShadow = true;
       group.add(base);
+      const bezel = new THREE.Mesh(
+        new THREE.TorusGeometry(Math.max(2.2, enabled[0].outerTube.od * 1.02), Math.max(0.08, enabled[0].outerTube.od * 0.05), 8, 48),
+        new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.3, metalness: 0.5 }),
+      );
+      bezel.rotation.x = Math.PI / 2;
+      bezel.position.set(0, 0, -Math.max(0.6, enabled[0].outerTube.od * 0.18) + Math.max(0.5, enabled[0].outerTube.od * 0.2));
+      group.add(bezel);
     }
   }, [assembly, project.segments, selectedSegmentId]);
 
   useEffect(() => {
     if (controlsRef.current) controlsRef.current.autoRotate = autoRotate;
   }, [autoRotate]);
+
+  useEffect(() => {
+    if (gridRef.current) gridRef.current.visible = showGrid;
+  }, [showGrid]);
+
+  useEffect(() => {
+    if (axesRef.current) axesRef.current.visible = showAxes;
+  }, [showAxes]);
 
   return (
     <div className="canvas-wrap" ref={mountRef}>
@@ -283,6 +393,16 @@ export function Robot3D({
           <span className="faint">ghosted tubes are unselected segments</span>
         </div>
         <div className="grow" />
+        <div className="scene-viewbar">
+          <span className="lbl">View</span>
+          <button type="button" className="btn xs ghost" onClick={() => viewRef.current?.('iso')}>Iso</button>
+          <button type="button" className="btn xs ghost" onClick={() => viewRef.current?.('front')}>Front</button>
+          <button type="button" className="btn xs ghost" onClick={() => viewRef.current?.('side')}>Side</button>
+          <button type="button" className="btn xs ghost" onClick={() => viewRef.current?.('top')}>Top</button>
+          <span className="sep" />
+          <button type="button" className={`btn xs ghost ${showGrid ? 'on' : ''}`} onClick={() => setShowGrid((v) => !v)}>Grid</button>
+          <button type="button" className={`btn xs ghost ${showAxes ? 'on' : ''}`} onClick={() => setShowAxes((v) => !v)}>Axes</button>
+        </div>
         <IconButton icon="rotate" label={autoRotate ? 'Stop rotation' : 'Auto-rotate'} size="sm" active={autoRotate} onClick={() => setAutoRotate(!autoRotate)} />
         <IconButton icon="target" label="Fit view" size="sm" onClick={() => fitRef.current?.()} />
       </div>

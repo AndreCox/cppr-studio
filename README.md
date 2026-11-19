@@ -22,9 +22,9 @@ A graphical design tool for **multi-section concentric push–pull robots (CPPRs
 | --- | --- |
 | ![Cosserat rod preview](docs/screenshots/cosserat.png) | ![Compare models](docs/screenshots/compare-models.png) |
 
-| Connected solid transmission |
-| --- |
-| ![Connected transmission](docs/screenshots/transmission-coupler.png) |
+| 3D robot view | Connected solid transmission |
+| --- | --- |
+| ![3D robot view](docs/screenshots/3d-robot.png) | ![Connected transmission](docs/screenshots/transmission-coupler.png) |
 
 | Design report |
 | --- |
@@ -55,6 +55,7 @@ Requires Node 18+ (developed on Node 24). The app is a static Vite/React/TypeScr
 - **Live STL preview.** A dedicated viewer rebuilds the actual printable outer/inner tube meshes as you change settings. Switch Both/Outer/Inner and Complete/Tip-only, orbit/zoom, auto-rotate or fit; handle (purple), solid transmission (grey), flex transmission (blue) and active notches (orange) are color-coded, with the distal tips aligned and the inner exploded above the outer.
 - **Fabrication.** Binary STL for each tube in the print orientation (layers along the axis): **tip-only** files for the bending section and **complete-tube** files that include the transmission slots and the inner handle. Also a **tip-only build plate**, a **complete-tube build plate** (all full tubes in one STL), 1:1 unrolled SVG/DXF laser patterns, a printable HTML design report, notch CSV, full design JSON, and a **Download everything (.zip)** package containing all tubes, both plates, both laser files, the report, CSV, JSON and a README.
 - **Connected transmission extension.** Add a solid proximal extension to the outer and/or inner tube and bridge the joint to the existing transmission with a separate coupler sleeve. The extension is included in the complete tube and laser pattern; the coupler is its own STL in the individual, complete-plate and everything exports.
+- **3D robot view.** Environment-lit PBR tubes, soft contact shadows, selected-tube outlines and ghosting, notch groove highlights, refined tip/base details, and Iso/Front/Side/Top presets with grid and axes toggles.
 - **Usability.** Live 2D shape canvas with pan/zoom, 3D orbit view, cross-section inspector with neutral axes and strain edges, notch table and charts, examples, undo/redo, project import/export and autosave.
 
 ## How to use it
