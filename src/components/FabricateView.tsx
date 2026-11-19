@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Project, RobotResult, SegmentConfig, SegmentResult } from '../core/types';
 import { buildAssemblyStl, buildSegmentTubes, type SegmentFab } from '../core/fab/build';
 import { meshToStlBinary } from '../core/fab/tubeMesh';
-import { meshToStep, type StepPart } from '../core/export/step';
+import { tubesToStep, type StepTube } from '../core/export/step';
 import { effectiveTransmissionPattern, transmissionDesign } from '../core/fab/transmission';
 import { buildLaserPatterns, patternToDxf, patternToSvg } from '../core/fab/patterns';
 import { buildReportHtml, designJson, notchesCsv } from '../core/export/report';
@@ -82,17 +82,21 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
     downloadBlob(name, new Blob([meshToStlBinary(tube.mesh, tube.label, tube.od / 2) as unknown as BlobPart], { type: 'model/stl' }));
   };
 
-  const stepParts = (): StepPart[] => rows.flatMap((row) => {
-    const parts: StepPart[] = [
-      { name: row.full.outer.label, mesh: row.full.outer.mesh },
-      { name: row.full.inner.label, mesh: row.full.inner.mesh },
-    ];
-    return parts;
+  const stepTube = (tube: { label: string; od: number; id: number; totalLength: number }): StepTube => ({
+    name: tube.label,
+    od: tube.od,
+    id: tube.id,
+    length: tube.totalLength,
   });
+
+  const stepParts = (): StepTube[] => rows.flatMap((row) => [
+    stepTube(row.full.outer),
+    stepTube(row.full.inner),
+  ]);
 
   const downloadStep = (row: Row, which: 'outer' | 'inner') => {
     const tube = which === 'outer' ? row.full.outer : row.full.inner;
-    const step = meshToStep([{ name: tube.label, mesh: tube.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}.step`, tube.label);
+    const step = tubesToStep([stepTube(tube)], `${slug}_${slugify(row.cfg.name)}_${which}.step`, tube.label);
     downloadBlob(`${slug}_${slugify(row.cfg.name)}_${which}.step`, new Blob([step], { type: 'model/step' }));
   };
 
@@ -101,7 +105,7 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
     setBusy(true);
     try {
       const parts = stepParts();
-      const step = meshToStep(parts, `${slug}_robot_parts.step`, `${project.name} parts`);
+      const step = tubesToStep(parts, `${slug}_robot_parts.step`, `${project.name} parts`);
       downloadBlob(`${slug}_robot_parts.step`, new Blob([step], { type: 'model/step' }));
     } finally {
       setBusy(false);
@@ -128,7 +132,7 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
           });
           entries.push({
             name: `step/${slug}_${slugify(row.cfg.name)}_${which}.step`,
-            content: meshToStep([{ name: ft.label, mesh: ft.mesh }], `${slug}_${slugify(row.cfg.name)}_${which}.step`, ft.label),
+            content: tubesToStep([stepTube(ft)], `${slug}_${slugify(row.cfg.name)}_${which}.step`, ft.label),
           });
         }
       }
@@ -307,16 +311,17 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
         <div className="fab-card">
           <h3><Icon name="cube" /> CAD / STEP</h3>
           <p>
-            Export the complete tubes as a <b>faceted AP214 STEP</b> for SolidWorks. Each part is a separate solid body in print orientation;
-            use the STEP buttons on a complete tube for a single-part file, or export all parts as one multibody file.
+            Export the complete tubes as a <b>smooth cylindrical AP214 STEP</b> for SolidWorks assembly. Each part is a separate solid
+            body with the correct OD, ID and length; use the STEP buttons on a complete tube for a single-part file, or export all parts
+            as one multibody file.
           </p>
           <div className="actions">
             <Button size="sm" icon="download" onClick={downloadAssemblyStep} disabled={busy}>{busy ? 'Preparing…' : 'All parts STEP'}</Button>
           </div>
           <div className="meta">
-            AP214 planar-faced B-rep from the same mesh as the STLs: closed solids, millimetre units. Per-part files are about 10 MB;
-            the all-parts multibody file can exceed 200 MB. For a smooth NURBS B-rep, rebuild the tube in SolidWorks from the exported
-            dimensions.
+            Smooth cylindrical AP214 B-rep for assembly: outer/inner cylindrical surfaces and planar annular ends, millimetre units.
+            Notches, transmission slots and tip cross-pin holes are intentionally omitted here — use the STL for the detailed fabrication
+            geometry. Files are a few KB per tube.
           </div>
         </div>
 
@@ -391,7 +396,7 @@ function readme(name: string, rows: Row[]): string {
     '          *_full_flex.stl is the complete tube: transmission slots + active notches (+ solid extensions).',
         '          *_tip_print_plate.stl lays out all tip-only tubes.',
     '          *_complete_print_plate.stl lays out all complete tubes (transmission + handles). Long tubes may need splitting.',
-    '  step/   Faceted AP214 STEP parts (complete tubes, print orientation) for SolidWorks.',
+    '  step/   Smooth AP214 STEP tubes (assembly model; notches/slots/tip holes omitted; mm).',
     '  laser/  Unrolled 1:1 SVG and DXF patterns. The red CUT layer includes active notches and transmission slots.',
     '          The pattern starts after each tube’s solid extension; align distal tips when assembling. Solid end sections are part of the complete tube.',
     '  docs/   Printable design report and the notch schedule as CSV.',

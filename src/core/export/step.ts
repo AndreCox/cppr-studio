@@ -1,8 +1,19 @@
-import type { Mesh } from '../fab/tubeMesh';
+/**
+ * Analytic STEP export for the printable tubes.
+ *
+ * SolidWorks assemblies need smooth B-rep faces, not a triangle soup. This
+ * writer emits a clean hollow-cylinder solid per tube: outer/inner cylindrical
+ * surfaces and planar annular end faces, with millimetre units. Notches,
+ * transmission slots and tip cross-pin holes are intentionally omitted from
+ * the CAD assembly model; the STL remains the detailed fabrication geometry.
+ */
 
-export interface StepPart {
+export interface StepTube {
   name: string;
-  mesh: Mesh;
+  od: number;
+  id: number;
+  /** Overall tube length, mm. */
+  length: number;
 }
 
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -17,18 +28,10 @@ function stepReal(v: number): string {
   return s;
 }
 
-const point3 = (p: [number, number, number]) => `(${stepReal(p[0])},${stepReal(p[1])},${stepReal(p[2])})`;
-const vector3 = (p: [number, number, number]) => `(${stepReal(p[0])},${stepReal(p[1])},${stepReal(p[2])})`;
+const vec = (p: [number, number, number]) => `(${stepReal(p[0])},${stepReal(p[1])},${stepReal(p[2])})`;
 
-/**
- * Export meshes as a STEP AP214 faceted B-rep.
- *
- * The printable tube mesh is triangulated, so the export uses planar
- * ADVANCED_FACEs with a shared edge topology. The result is a valid
- * MANIFOLD_SOLID_BREP per part (a closed faceted solid). SolidWorks imports
- * these as solid bodies; it is a tessellated STEP, not a NURBS B-rep.
- */
-export function meshToStep(parts: StepPart[], fileName: string, productName = fileName): string {
+/** Write one or more hollow tubes as AP214 manifold solids. */
+export function tubesToStep(parts: StepTube[], fileName: string, productName = fileName): string {
   const entities: string[] = [];
   let next = 1;
   const id = () => next++;
@@ -62,114 +65,146 @@ export function meshToStep(parts: StepPart[], fileName: string, productName = fi
   entities.push(`#${productShape} = PRODUCT_DEFINITION_SHAPE('','',#${productDefinition});`);
 
   const solids: number[] = [];
-  for (const part of parts) {
-    const points = new Map<string, number>();
-    const vertices = new Map<string, number>();
-    const edges = new Map<string, { id: number; a: number; b: number }>();
-    const faces: number[] = [];
-    const pos = part.mesh.positions;
-    const tris = part.mesh.triangles;
 
-    const pointKey = (i: number) => {
-      const x = pos[i * 3];
-      const y = pos[i * 3 + 1];
-      const z = pos[i * 3 + 2];
-      return `${Math.round(x * 1e6)},${Math.round(y * 1e6)},${Math.round(z * 1e6)}`;
+  for (const part of parts) {
+    const Ro = Math.max(0.05, part.od / 2);
+    const Ri = Math.max(0, Math.min(part.id / 2, Ro - 0.02));
+    const L = Math.max(0.1, part.length);
+    const name = part.name;
+
+    // Geometric helpers.
+    const point = (p: [number, number, number]) => {
+      const entity = id();
+      entities.push(`#${entity} = CARTESIAN_POINT('',${vec(p)});`);
+      return entity;
     };
-    const readPoint = (i: number): [number, number, number] => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
-    const pointId = (key: string, p: [number, number, number]) => {
-      let point = points.get(key);
-      if (point) return point;
-      point = id();
-      entities.push(`#${point} = CARTESIAN_POINT('',${point3(p)});`);
-      points.set(key, point);
-      return point;
+    const direction = (d: [number, number, number]) => {
+      const entity = id();
+      entities.push(`#${entity} = DIRECTION('',${vec(d)});`);
+      return entity;
     };
-    const vertexId = (key: string, p: [number, number, number]) => {
-      let vertex = vertices.get(key);
-      if (vertex) return vertex;
-      const point = pointId(key, p);
-      vertex = id();
-      entities.push(`#${vertex} = VERTEX_POINT('',#${point});`);
-      vertices.set(key, vertex);
-      return vertex;
+    const axis = (origin: [number, number, number], normal: [number, number, number], ref: [number, number, number]) => {
+      const entity = id();
+      entities.push(`#${entity} = AXIS2_PLACEMENT_3D('',#${point(origin)},#${direction(normal)},#${direction(ref)});`);
+      return entity;
     };
-    const edgeId = (aIndex: number, bIndex: number) => {
-      const aKey = pointKey(aIndex);
-      const bKey = pointKey(bIndex);
-      const key = aKey < bKey ? `${aKey}|${bKey}` : `${bKey}|${aKey}`;
-      let edge = edges.get(key);
-      if (edge) return edge;
-      const a = vertexId(aKey, readPoint(aIndex));
-      const b = vertexId(bKey, readPoint(bIndex));
-      const pa = readPoint(aIndex);
-      const pb = readPoint(bIndex);
-      const d: [number, number, number] = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
+    const vertex = (p: [number, number, number]) => {
+      const entity = id();
+      entities.push(`#${entity} = VERTEX_POINT('',#${point(p)});`);
+      return entity;
+    };
+    const circle = (at: [number, number, number], radius: number) => {
+      const entity = id();
+      entities.push(`#${entity} = CIRCLE('',#${axis(at, [0, 0, 1], [1, 0, 0])},${stepReal(radius)});`);
+      return entity;
+    };
+    const cylinder = (radius: number) => {
+      const entity = id();
+      entities.push(`#${entity} = CYLINDRICAL_SURFACE('',#${axis([0, 0, 0], [0, 0, 1], [1, 0, 0])},${stepReal(radius)});`);
+      return entity;
+    };
+    const plane = (at: [number, number, number], normal: [number, number, number]) => {
+      const entity = id();
+      entities.push(`#${entity} = PLANE('',#${axis(at, normal, [1, 0, 0])});`);
+      return entity;
+    };
+    const lineEdge = (a: [number, number, number], b: [number, number, number], va: number, vb: number) => {
+      const d: [number, number, number] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
       const len = Math.hypot(d[0], d[1], d[2]) || 1;
-      const dir = id();
-      entities.push(`#${dir} = DIRECTION('',${vector3([d[0] / len, d[1] / len, d[2] / len])});`);
-      const vec = id();
-      entities.push(`#${vec} = VECTOR('',#${dir},1.);`);
-      const point = pointId(aKey, pa);
-      const line = id();
-      entities.push(`#${line} = LINE('',#${point},#${vec});`);
-      const curve = id();
-      entities.push(`#${curve} = EDGE_CURVE('',#${a},#${b},#${line},.T.);`);
-      edge = { id: curve, a: aIndex, b: bIndex };
-      edges.set(key, edge);
+      const dir = direction([d[0] / len, d[1] / len, d[2] / len]);
+      const v = id();
+      entities.push(`#${v} = VECTOR('',#${dir},1.);`);
+      const ln = id();
+      entities.push(`#${ln} = LINE('',#${point(a)},#${v});`);
+      const edge = id();
+      entities.push(`#${edge} = EDGE_CURVE('',#${va},#${vb},#${ln},.T.);`);
       return edge;
     };
-
-    for (let t = 0; t < tris.length; t += 3) {
-      const ia = tris[t];
-      const ib = tris[t + 1];
-      const ic = tris[t + 2];
-      const a = readPoint(ia);
-      const b = readPoint(ib);
-      const c = readPoint(ic);
-      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-      const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-      let nx = uy * vz - uz * vy;
-      let ny = uz * vx - ux * vz;
-      let nz = ux * vy - uy * vx;
-      const nlen = Math.hypot(nx, ny, nz);
-      if (nlen < 1e-12) continue;
-      nx /= nlen; ny /= nlen; nz /= nlen;
-      const rlen = Math.hypot(ux, uy, uz) || 1;
-      const rx = ux / rlen, ry = uy / rlen, rz = uz / rlen;
-
-      const normal = id();
-      entities.push(`#${normal} = DIRECTION('',${vector3([nx, ny, nz])});`);
-      const ref = id();
-      entities.push(`#${ref} = DIRECTION('',${vector3([rx, ry, rz])});`);
-      const pointA = pointId(pointKey(ia), a);
-      const axis = id();
-      entities.push(`#${axis} = AXIS2_PLACEMENT_3D('',#${pointA},#${normal},#${ref});`);
-      const plane = id();
-      entities.push(`#${plane} = PLANE('',#${axis});`);
-
-      const loopEdges: number[] = [];
-      const seq: [number, number][] = [[ia, ib], [ib, ic], [ic, ia]];
-      for (const [u, v] of seq) {
-        const edge = edgeId(u, v);
-        const same = edge.a === u && edge.b === v;
-        const oriented = id();
-        entities.push(`#${oriented} = ORIENTED_EDGE('',*,*,#${edge.id},${same ? '.T.' : '.F.'});`);
-        loopEdges.push(oriented);
+    const circleEdge = (circleId: number, v: number) => {
+      const edge = id();
+      entities.push(`#${edge} = EDGE_CURVE('',#${v},#${v},#${circleId},.T.);`);
+      return edge;
+    };
+    const oriented = (edge: number, same: boolean) => {
+      const entity = id();
+      entities.push(`#${entity} = ORIENTED_EDGE('',*,*,#${edge},${same ? '.T.' : '.F.'});`);
+      return entity;
+    };
+    const loop = (edges: number[]) => {
+      const entity = id();
+      entities.push(`#${entity} = EDGE_LOOP('',(${edges.map((e) => `#${e}`).join(',')}));`);
+      return entity;
+    };
+    const face = (surface: number, outerLoop: number, innerLoops: number[] = [], sameSense = true) => {
+      const outer = id();
+      entities.push(`#${outer} = FACE_OUTER_BOUND('',#${outerLoop},.T.);`);
+      const bounds = [outer];
+      for (const inner of innerLoops) {
+        const bound = id();
+        entities.push(`#${bound} = FACE_BOUND('',#${inner},.T.);`);
+        bounds.push(bound);
       }
-      const loop = id();
-      entities.push(`#${loop} = EDGE_LOOP('',(${loopEdges.map((e) => `#${e}`).join(',')}));`);
-      const bound = id();
-      entities.push(`#${bound} = FACE_OUTER_BOUND('',#${loop},.T.);`);
-      const face = id();
-      entities.push(`#${face} = ADVANCED_FACE('',(#${bound}),#${plane},.T.);`);
-      faces.push(face);
-    }
+      const entity = id();
+      entities.push(`#${entity} = ADVANCED_FACE('',(${bounds.map((b) => `#${b}`).join(',')}),#${surface},${sameSense ? '.T.' : '.F.'});`);
+      return entity;
+    };
+
+    // Four shared seam vertices and the eight end circles/edges.
+    const vOuterBottom = vertex([Ro, 0, 0]);
+    const vOuterTop = vertex([Ro, 0, L]);
+    const vInnerBottom = vertex([Ri, 0, 0]);
+    const vInnerTop = vertex([Ri, 0, L]);
+
+    const circleOuterBottom = circle([0, 0, 0], Ro);
+    const circleOuterTop = circle([0, 0, L], Ro);
+    const circleInnerBottom = circle([0, 0, 0], Ri);
+    const circleInnerTop = circle([0, 0, L], Ri);
+
+    const edgeOuterBottom = circleEdge(circleOuterBottom, vOuterBottom);
+    const edgeOuterTop = circleEdge(circleOuterTop, vOuterTop);
+    const edgeInnerBottom = circleEdge(circleInnerBottom, vInnerBottom);
+    const edgeInnerTop = circleEdge(circleInnerTop, vInnerTop);
+
+    const seamOuter = lineEdge([Ro, 0, 0], [Ro, 0, L], vOuterBottom, vOuterTop);
+    const seamInner = lineEdge([Ri, 0, 0], [Ri, 0, L], vInnerBottom, vInnerTop);
+
+    const surfOuter = cylinder(Ro);
+    const surfInner = cylinder(Ri);
+    const surfBottom = plane([0, 0, 0], [0, 0, -1]);
+    const surfTop = plane([0, 0, L], [0, 0, 1]);
+
+    // Outer cylinder: outward normal.
+    const outerLoop = loop([
+      oriented(edgeOuterBottom, true),
+      oriented(seamOuter, true),
+      oriented(edgeOuterTop, false),
+      oriented(seamOuter, false),
+    ]);
+    const outerFace = face(surfOuter, outerLoop, [], true);
+
+    // Inner cylinder: inward normal, shared edges reversed relative to the annuli.
+    const innerLoop = loop([
+      oriented(edgeInnerBottom, false),
+      oriented(seamInner, false),
+      oriented(edgeInnerTop, true),
+      oriented(seamInner, true),
+    ]);
+    const innerFace = face(surfInner, innerLoop, [], false);
+
+    // Bottom annulus: outer loop clockwise from +Z, inner hole counter-clockwise.
+    const bottomOuter = loop([oriented(edgeOuterBottom, false)]);
+    const bottomInner = loop([oriented(edgeInnerBottom, true)]);
+    const bottomFace = face(surfBottom, bottomOuter, [bottomInner], true);
+
+    // Top annulus: outer loop counter-clockwise from +Z, inner hole clockwise.
+    const topOuter = loop([oriented(edgeOuterTop, true)]);
+    const topInner = loop([oriented(edgeInnerTop, false)]);
+    const topFace = face(surfTop, topOuter, [topInner], true);
 
     const shell = id();
-    entities.push(`#${shell} = CLOSED_SHELL('',(${faces.map((f) => `#${f}`).join(',')}));`);
+    entities.push(`#${shell} = CLOSED_SHELL('',(#${outerFace},#${innerFace},#${bottomFace},#${topFace}));`);
     const solid = id();
-    entities.push(`#${solid} = MANIFOLD_SOLID_BREP(${stepString(part.name)},#${shell});`);
+    entities.push(`#${solid} = MANIFOLD_SOLID_BREP(${stepString(name)},#${shell});`);
     solids.push(solid);
   }
 
@@ -182,7 +217,7 @@ export function meshToStep(parts: StepPart[], fileName: string, productName = fi
   const header = [
     'ISO-10303-21;',
     'HEADER;',
-    `FILE_DESCRIPTION((${stepString('CPPR Studio faceted STEP export')}),'2;1');`,
+    `FILE_DESCRIPTION((${stepString('CPPR Studio smooth tube STEP export')}),'2;1');`,
     `FILE_NAME(${stepString(fileName)},'${now}',(${stepString('CPPR Studio')}),(${stepString('CPPR Studio')}),'CPPR Studio','CPPR Studio','');`,
     `FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));`,
     'ENDSEC;',
