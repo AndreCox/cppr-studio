@@ -45,8 +45,9 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <h3>3D robot view</h3>
           <p>
             The 3D robot view renders the actual notched tube meshes, including transmission slots and notch cuts, deformed into the final
-            assembled configuration. It uses environment lighting, soft contact shadows and PBR tube materials; the selected pair is outlined
-            and the other pairs are ghosted. Use the <b>Iso</b>,
+            assembled configuration. A distal pair's transmission is routed back through the upstream assembled path, so it bends inside the
+            proximal section. It uses environment lighting, soft contact shadows and PBR tube materials; the selected pair is outlined and the
+            other pairs are ghosted. Use the <b>Iso</b>,
             <b>Front</b>, <b>Side</b> and <b>Top</b> presets to inspect the pose; toggle the grid and axes from the same bar.
           </p>
           <h3>Cosserat (accurate) bending</h3>
