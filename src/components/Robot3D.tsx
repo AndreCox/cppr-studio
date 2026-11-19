@@ -384,43 +384,12 @@ export function Robot3D({
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         group.add(mesh);
-        if (selected) {
-          const outline = new THREE.Mesh(
-            geometry,
-            new THREE.MeshBasicMaterial({ color: colorBase.clone().multiplyScalar(0.35), side: THREE.BackSide, transparent: true, opacity: 0.22 }),
-          );
-          outline.scale.setScalar(1.008);
-          group.add(outline);
-        }
       };
       makeDeformed(fab.outer, fab.outerActiveStart);
       makeDeformed(fab.inner, fab.innerActiveStart);
-      const last = frames[frames.length - 1];
-      const tip = new THREE.Mesh(
-        new THREE.SphereGeometry(Math.max(0.2, cfg.innerTube.od / 2), 16, 12),
-        new THREE.MeshStandardMaterial({ color: colorBase, roughness: 0.4, metalness: 0.1, transparent: !selected, opacity: selected ? 1 : 0.5 }),
-      );
-      tip.position.copy(last.p);
-      tip.castShadow = true;
-      group.add(tip);
     });
 
-    // base disc
-    if (enabled.length > 0) {
-      const baseGeo = new THREE.CylinderGeometry(
-        Math.max(2, enabled[0].outerTube.od * 0.9),
-        Math.max(2.4, enabled[0].outerTube.od * 1.1),
-        Math.max(1.2, enabled[0].outerTube.od * 0.35),
-        32,
-      );
-      const baseMat = new THREE.MeshPhysicalMaterial({ color: 0x64748b, roughness: 0.42, metalness: 0.28, clearcoat: 0.3 });
-      const base = new THREE.Mesh(baseGeo, baseMat);
-      base.rotation.x = Math.PI / 2;
-      base.position.set(0, 0, -Math.max(0.6, enabled[0].outerTube.od * 0.18));
-      base.castShadow = true;
-      base.receiveShadow = true;
-      group.add(base);
-    }
+
   }, [assembly, project.segments, selectedSegmentId]);
 
   useEffect(() => {
