@@ -733,6 +733,7 @@ kbd { font-family: var(--mono); }
 }
 .compare-chart-inner { position: absolute; inset: 0; }
 .compare-svg { width: 100%; height: 100%; display: block; }
+.compare-chart-bg { fill: var(--canvas-bg); }
 .compare-grid { stroke: #e4ebf3; stroke-width: 1; }
 .compare-axis { stroke: #94a3b8; stroke-width: 1.15; }
 .compare-tick { font-size: 10px; fill: #64748b; font-family: var(--mono); }
