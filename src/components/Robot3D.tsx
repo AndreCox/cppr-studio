@@ -255,40 +255,48 @@ export function Robot3D({
       const baseT = new THREE.Vector3(0, 0, 1).applyQuaternion(baseQ).normalize();
       const baseN = new THREE.Vector3(1, 0, 0).applyQuaternion(baseQ).normalize();
       const segIndex = assembly.worldSegments.findIndex((w) => w.segmentId === seg.segmentId);
-      const firstSeg = assembly.worldSegments[0] ?? seg;
-      const firstBasePos = new THREE.Vector3(firstSeg.base.position[0], firstSeg.base.position[1], firstSeg.base.position[2]);
-      const firstBaseQ = new THREE.Quaternion(firstSeg.base.quaternion[0], firstSeg.base.quaternion[1], firstSeg.base.quaternion[2], firstSeg.base.quaternion[3]).normalize();
-      const firstBaseT = new THREE.Vector3(0, 0, 1).applyQuaternion(firstBaseQ).normalize();
-      const firstBaseN = new THREE.Vector3(1, 0, 0).applyQuaternion(firstBaseQ).normalize();
-      const firstBaseB = new THREE.Vector3().crossVectors(firstBaseT, firstBaseN).normalize();
       const upstreamPts: THREE.Vector3[] = [];
       for (let k = 0; k < Math.max(0, segIndex); k++) {
         for (const p of assembly.worldSegments[k].points) upstreamPts.push(new THREE.Vector3(p[0], p[1], p[2]));
       }
-      const upstreamCum: number[] = [0];
-      for (let i = 1; i < upstreamPts.length; i++) upstreamCum.push(upstreamCum[i - 1] + upstreamPts[i].distanceTo(upstreamPts[i - 1]));
-      const upstreamLen = upstreamCum[upstreamCum.length - 1] ?? 0;
-      const upstreamFrames: { s: number; p: THREE.Vector3; T: THREE.Vector3; N: THREE.Vector3; B: THREE.Vector3 }[] = [];
-      let upPrevT = firstBaseT.clone();
-      let upN = firstBaseN.clone();
-      for (let i = 0; i < upstreamPts.length; i++) {
-        const T = i === 0 ? firstBaseT.clone() : upstreamPts[i].clone().sub(upstreamPts[i - 1]).normalize();
+      const basePoint = new THREE.Vector3(seg.base.position[0], seg.base.position[1], seg.base.position[2]);
+      const backwardPts: THREE.Vector3[] = [basePoint.clone(), ...upstreamPts.slice(0, -1).reverse().map((p) => p.clone())];
+      const backwardCum: number[] = [0];
+      for (let i = 1; i < backwardPts.length; i++) backwardCum.push(backwardCum[i - 1] + backwardPts[i].distanceTo(backwardPts[i - 1]));
+      const backwardLen = backwardCum[backwardCum.length - 1] ?? 0;
+      const backwardFrames: { s: number; p: THREE.Vector3; T: THREE.Vector3; N: THREE.Vector3; B: THREE.Vector3 }[] = [];
+      let backPrevT = baseT.clone();
+      let backN = baseN.clone();
+      for (let i = 0; i < backwardPts.length; i++) {
+        // Forward centreline tangent at this point, so the frame matches the active section at d=0.
+        const T = i === 0 ? baseT.clone() : backwardPts[i - 1].clone().sub(backwardPts[i]).normalize();
         if (i > 0) {
-          const q = new THREE.Quaternion().setFromUnitVectors(upPrevT, T);
-          upN.applyQuaternion(q);
+          const q = new THREE.Quaternion().setFromUnitVectors(backPrevT, T);
+          backN.applyQuaternion(q);
         }
-        upN.sub(T.clone().multiplyScalar(upN.dot(T))).normalize();
-        const B = new THREE.Vector3().crossVectors(T, upN).normalize();
-        upstreamFrames.push({ s: upstreamCum[i], p: upstreamPts[i].clone(), T, N: upN.clone(), B });
-        upPrevT = T;
+        backN.sub(T.clone().multiplyScalar(backN.dot(T))).normalize();
+        const B = new THREE.Vector3().crossVectors(T, backN).normalize();
+        backwardFrames.push({ s: backwardCum[i], p: backwardPts[i].clone(), T, N: backN.clone(), B });
+        backPrevT = T;
       }
-      const upstreamFrameAt = (s: number) => {
-        if (upstreamFrames.length === 0) return { p: firstBasePos.clone(), T: firstBaseT.clone(), N: firstBaseN.clone(), B: firstBaseB.clone() };
-        const clamped = Math.max(0, Math.min(upstreamLen, s));
+      const backwardFrameAt = (distance: number) => {
+        if (backwardFrames.length === 0) {
+          return { p: basePoint.clone().addScaledVector(baseT, -distance), T: baseT.clone(), N: baseN.clone(), B: new THREE.Vector3().crossVectors(baseT, baseN).normalize() };
+        }
+        if (distance >= backwardLen) {
+          const last = backwardFrames[backwardFrames.length - 1];
+          return {
+            p: last.p.clone().addScaledVector(last.T, -(distance - backwardLen)),
+            T: last.T.clone(),
+            N: last.N.clone(),
+            B: last.B.clone(),
+          };
+        }
+        const clamped = Math.max(0, distance);
         let j = 1;
-        while (j < upstreamFrames.length - 1 && upstreamFrames[j].s < clamped) j++;
-        const a = upstreamFrames[j - 1];
-        const b = upstreamFrames[j] ?? a;
+        while (j < backwardFrames.length - 1 && backwardFrames[j].s < clamped) j++;
+        const a = backwardFrames[j - 1];
+        const b = backwardFrames[j] ?? a;
         const w = b.s > a.s ? (clamped - a.s) / (b.s - a.s) : 0;
         return {
           p: a.p.clone().lerp(b.p, w),
@@ -296,18 +304,6 @@ export function Robot3D({
           N: a.N.clone().lerp(b.N, w).normalize(),
           B: a.B.clone().lerp(b.B, w).normalize(),
         };
-      };
-      const backwardFrame = (distance: number) => {
-        if (upstreamFrames.length < 2 || distance > upstreamLen) {
-          const extra = Math.max(0, distance - upstreamLen);
-          return {
-            p: firstBasePos.clone().addScaledVector(firstBaseT, -extra),
-            T: firstBaseT.clone(),
-            N: firstBaseN.clone(),
-            B: firstBaseB.clone(),
-          };
-        }
-        return upstreamFrameAt(upstreamLen - distance);
       };
       const cum: number[] = [0];
       for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + pts[i].distanceTo(pts[i - 1]));
@@ -351,7 +347,7 @@ export function Robot3D({
           let world: THREE.Vector3;
           let c = colorBase;
           if (z <= activeBase) {
-            const back = backwardFrame(activeBase - z);
+            const back = backwardFrameAt(activeBase - z);
             world = back.p.clone().addScaledVector(back.N, x).addScaledVector(back.B, y);
             c = dark;
           } else if (z <= activeBase + res.activeTubeLength) {
