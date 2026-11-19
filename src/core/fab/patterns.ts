@@ -146,7 +146,7 @@ export function buildLaserPatterns(cfg: SegmentConfig, res: SegmentResult, inclu
     const geom = tubeGeom(t.spec);
     const R = geom.od / 2;
     const circ = TAU * R;
-    const extension = t.tube === 'inner' ? Math.max(0, cfg.innerExtension || 0) : 0;
+    const extension = t.tube === 'inner' ? Math.max(0, cfg.innerExtension || 0) : Math.max(0, cfg.outerExtension || 0);
     const activeStart = cfg.transmission.length + leadIn + extension;
     const total = activeStart + res.activeTubeLength;
     const tipExtension = cfg.tipFeature?.enabled ? Math.max(0, cfg.tipFeature.extension) : 0;
@@ -175,8 +175,18 @@ export function buildLaserPatterns(cfg: SegmentConfig, res: SegmentResult, inclu
     }
     if (extension > 0) {
       notes.push(
-        `Inner tube handle extension: ${extension.toFixed(0)} mm of solid tube at the proximal end for hand actuation. ` +
-          'It is included in the complete inner STL and in this pattern (before the transmission slots). Align the distal tips when assembling.',
+        t.tube === 'inner'
+          ? `Inner tube handle extension: ${extension.toFixed(0)} mm of solid tube at the proximal end for hand actuation. ` +
+            'It is included in the complete inner STL and in this pattern (before the transmission slots). Align the distal tips when assembling.'
+          : `Outer tube solid extension: ${extension.toFixed(0)} mm of solid tube at the proximal end, joined to the transmission. ` +
+            'It is included in the complete outer STL and in this pattern (before the transmission slots).',
+      );
+    }
+    const coupler = cfg.transmission.coupler;
+    if (includeTransmission && extension > 0 && coupler?.enabled && (coupler.tubes === 'both' || coupler.tubes === t.tube)) {
+      notes.push(
+        `Transmission coupler: separate ${coupler.length.toFixed(0)} mm ${t.tube} sleeve (OD ${(t.spec.od + 2 * coupler.clearance + 2 * coupler.wall).toFixed(2)} mm) ` +
+          `bridges the solid extension and transmission; it is a separate printed part, not a pattern cut.`,
       );
     }
     const all = [...tr.regions, ...regions].sort((a, b) => a.z0 - b.z0);

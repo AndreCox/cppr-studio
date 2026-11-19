@@ -22,6 +22,7 @@ export const defaultSettings = (): ProjectSettings => ({
 
 export const defaultTransmission = (): TransmissionConfig => ({
   length: 900,
+  coupler: { enabled: false, tubes: 'both', length: 14, wall: 0.8, clearance: 0.15 },
   pattern: 'discrete',
   innerPattern: 'same',
   cutsPerRev: 6,
@@ -62,6 +63,7 @@ export function makeSegment(overrides: Partial<SegmentConfig> = {}): SegmentConf
     outerTube: { od: 4.02, wall: 0.16, materialId: 'nitinol' },
     innerTube: { od: 3.5, wall: 0.15, materialId: 'nitinol' },
     innerExtension: 0,
+    outerExtension: 0,
     tipFeature: defaultTipFeature(),
     cutType: 'chord',
     shape: defaultShape('sCurve', 0.042),

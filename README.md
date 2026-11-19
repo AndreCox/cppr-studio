@@ -22,6 +22,10 @@ A graphical design tool for **multi-section concentric push–pull robots (CPPRs
 | --- | --- |
 | ![Cosserat rod preview](docs/screenshots/cosserat.png) | ![Compare models](docs/screenshots/compare-models.png) |
 
+| Connected solid transmission |
+| --- |
+| ![Connected transmission](docs/screenshots/transmission-coupler.png) |
+
 | Design report |
 | --- |
 | ![Design report](docs/screenshots/report.png) |
@@ -42,7 +46,7 @@ Requires Node 18+ (developed on Node 24). The app is a static Vite/React/TypeScr
 - **Multi-section robots.** Add nested tube pairs to the left rail, give each one a mounting roll, and inspect the resulting 3D assembly. Each enabled pair contributes insertion, bending and roll (3 nominal DOF).
 - **Shape design.** Choose a curvature profile (constant arc, S-curve, tip-first, base-first, retroflex, mid-bend) and a peak bend radius, or switch to custom control handles and drag the target shape directly on the canvas.
 - **Notch synthesis.** The paper’s maximum-stiffness algorithm sizes `g_o`, `g_i` and `h` for every notch, matches the inner/outer flexural rigidities and enforces the allowable strain with a safety factor. Depths, spacing and the number of notches are all under your control.
-- **Transmission anatomy.** Both tubes of a pair run from the base to the tip; the proximal, un-notched part of each is its transmission. The outer tube’s transmission is the sheath/handle, the inner tube’s is the sliding shaft — they are not extra tubes. The outer and inner patterns are set independently. Pattern both when the pair must flex through a curved channel or a proximal bending section; a free-standing proximal handle can be solid. Distal pairs get a warning if their transmission is solid because it must follow the proximal bend. The inner tube can also have a solid proximal handle extension for hand actuation.
+- **Transmission anatomy.** Both tubes of a pair run from the base to the tip; the proximal, un-notched part of each is its transmission. The outer tube’s transmission is the sheath/handle, the inner tube’s is the sliding shaft — they are not extra tubes. The outer and inner patterns are set independently. Pattern both when the pair must flex through a curved channel or a proximal bending section; a free-standing proximal handle can be solid. Distal pairs get a warning if their transmission is solid because it must follow the proximal bend. The inner tube can also have a solid proximal handle extension for hand actuation. Either tube can get a solid proximal extension joined to its transmission by a separate coupler sleeve; the coupler is exported as its own STL and shown in the complete-tube viewer.
 - **Verification.** Strain utilisation per edge, depth caps, Euler buckling, self-contact limit, clearance, achievable curvature envelope, shape fit error, tip error and mass. The exact forward kinematics is solved at the design actuation and swept across a workspace for previews.
 - **Hand actuation.** Give each inner tube a solid proximal **handle extension** so it can be gripped and pulled by hand. It is included in the complete inner STL and laser pattern; align the **distal tips** during assembly.
 - **Tip cross-pin.** Optionally extend both tube tips with a short straight collar and a diametric cross-hole sized for 1.75 mm filament. The two openings are 180° apart; a pin through the assembled pair locks the tips together. Toggle it off, or customize the tip extension, hole diameter, hole distance from the tip and clocking angle. The extension and holes are included in the printed STLs, the laser patterns and the live viewer (green).
@@ -50,6 +54,7 @@ Requires Node 18+ (developed on Node 24). The app is a static Vite/React/TypeScr
 - **Cosserat preview.** The **Bending model** section in the right rail switches the 3D robot from the fast analytic model to the Rust Cosserat rod solver compiled to WebAssembly. It re-solves the designed notch depths and push/pull, reports convergence/iterations/time, and supports a planar (recommended) or full 3D + gravity mode.
 - **Live STL preview.** A dedicated viewer rebuilds the actual printable outer/inner tube meshes as you change settings. Switch Both/Outer/Inner and Complete/Tip-only, orbit/zoom, auto-rotate or fit; handle (purple), solid transmission (grey), flex transmission (blue) and active notches (orange) are color-coded, with the distal tips aligned and the inner exploded above the outer.
 - **Fabrication.** Binary STL for each tube in the print orientation (layers along the axis): **tip-only** files for the bending section and **complete-tube** files that include the transmission slots and the inner handle. Also a **tip-only build plate**, a **complete-tube build plate** (all full tubes in one STL), 1:1 unrolled SVG/DXF laser patterns, a printable HTML design report, notch CSV, full design JSON, and a **Download everything (.zip)** package containing all tubes, both plates, both laser files, the report, CSV, JSON and a README.
+- **Connected transmission extension.** Add a solid proximal extension to the outer and/or inner tube and bridge the joint to the existing transmission with a separate coupler sleeve. The extension is included in the complete tube and laser pattern; the coupler is its own STL in the individual, complete-plate and everything exports.
 - **Usability.** Live 2D shape canvas with pan/zoom, 3D orbit view, cross-section inspector with neutral axes and strain edges, notch table and charts, examples, undo/redo, project import/export and autosave.
 
 ## How to use it

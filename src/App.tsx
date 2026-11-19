@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Material, Project, SegmentConfig } from './core/types';
 import { designProject } from './core/design/robot';
-import { cloneSegment, defaultShape, defaultTipFeature, makeSegment, newProject } from './core/defaults';
+import { cloneSegment, defaultShape, defaultTipFeature, defaultTransmission, makeSegment, newProject } from './core/defaults';
 import { normalizeProject, useProject } from './state/useProject';
 import { buildLaserPatterns, patternToDxf, patternToSvg } from './core/fab/patterns';
 import { downloadText, slugify } from './lib/files';
@@ -166,6 +166,7 @@ export default function App() {
         outerTube: { od, wall, materialId: prev?.outerTube.materialId ?? 'nitinol' },
         innerTube: { od: innerOd, wall: innerWall, materialId: prev?.innerTube.materialId ?? 'nitinol' },
         innerExtension: Math.max(20, (prev?.innerExtension ?? 0) + 25),
+        outerExtension: prev?.outerExtension ?? 0,
         tipFeature: prev?.tipFeature?.enabled ? { ...prev.tipFeature } : defaultTipFeature(),
         cutType: prev?.cutType ?? 'chord',
         shape: defaultShape('tipFirst', 1 / Math.max(7, prevRadius * (od / Math.max(1e-6, prev?.outerTube.od ?? od)) * 1.15)),
@@ -175,6 +176,7 @@ export default function App() {
         maxDepthFrac: prev?.maxDepthFrac ?? 0.95,
         minClearance: clearance,
         transmission: {
+          ...defaultTransmission(),
           length: prev ? Math.max(120, Math.round(prev.transmission.length + prev.activeLength * 0.5)) : 200,
           // A newly added distal pair must pass through the existing bends, so it
           // defaults to a flexible transmission even if the proximal handle is solid.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PRINTED_DEMO, makeSegment } from '../src/core/defaults';
 import { designProject } from '../src/core/design/robot';
-import { buildSegmentTubes } from '../src/core/fab/build';
+import { buildSegmentTubes, buildStlParts } from '../src/core/fab/build';
 import { buildLaserPatterns } from '../src/core/fab/patterns';
 
 function meshZRange(positions: number[]) {
@@ -71,5 +71,55 @@ describe('inner tube hand-actuation extension', () => {
     const p = PRINTED_DEMO();
     expect(p.segments[0].innerExtension).toBeGreaterThan(0);
     expect(p.segments[1].innerExtension).toBeGreaterThan(p.segments[0].innerExtension);
+  });
+});
+
+describe('connected solid outer transmission extension', () => {
+  const cfg = makeSegment({
+    name: 'coupled extension',
+    outerExtension: 25,
+    innerExtension: 20,
+    transmission: {
+      ...PRINTED_DEMO().segments[1].transmission,
+      length: 60,
+      coupler: { enabled: true, tubes: 'outer', length: 12, wall: 0.8, clearance: 0.15 },
+    },
+  });
+  const project = { ...PRINTED_DEMO(), segments: [cfg] };
+  const result = designProject(project);
+  const res = result.segments[0];
+
+  it('reports the outer extension and coupler in the design notes', () => {
+    expect(res.ok).toBe(true);
+    expect(res.info.join(' ')).toMatch(/outer tube solid extension/i);
+    expect(res.info.join(' ')).toMatch(/transmission coupler/i);
+  });
+
+  it('builds a coupler sleeve at the solid-to-transmission joint', () => {
+    const full = buildSegmentTubes(cfg, res, { includeTransmission: true });
+    const coupler = full.couplers.outer;
+    expect(coupler).not.toBeNull();
+    expect(full.couplers.inner).toBeNull();
+    expect(coupler!.jointCenter).toBeCloseTo(25, 6);
+    expect(coupler!.totalLength).toBeCloseTo(12, 6);
+    expect(coupler!.od).toBeCloseTo(cfg.outerTube.od + 2 * (0.15 + 0.8), 6);
+    const z = meshZRange(coupler!.mesh.positions);
+    expect(z.min).toBeCloseTo(0, 4);
+    expect(z.max).toBeCloseTo(12, 4);
+    expect(full.outer.totalLength).toBeGreaterThan(full.inner.totalLength);
+  });
+
+  it('exports the coupler as a separate STL and notes it in the laser pattern', () => {
+    const full = buildSegmentTubes(cfg, res, { includeTransmission: true });
+    const parts = buildStlParts([{ cfg, res, fab: full }]);
+    expect(parts.some((p) => p.fileName.endsWith('_outer_coupler.stl'))).toBe(true);
+    expect(parts.some((p) => p.fileName.endsWith('_inner_coupler.stl'))).toBe(false);
+    const patterns = buildLaserPatterns(cfg, res, true);
+    const outer = patterns.find((p) => p.tube === 'outer')!;
+    const inner = patterns.find((p) => p.tube === 'inner')!;
+    expect(outer.length - inner.length).toBeCloseTo(5, 4);
+    expect(outer.notes.join(' ')).toMatch(/outer tube solid extension/i);
+    expect(outer.notes.join(' ')).toMatch(/transmission coupler/i);
+    expect(inner.notes.join(' ')).toMatch(/handle extension/i);
   });
 });

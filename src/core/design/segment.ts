@@ -531,6 +531,31 @@ export function designSegment(cfg: SegmentConfig, materials: Material[]): Segmen
         '(for hand pull/push; included in the full + flex inner STL and laser pattern, not in the kinematics).',
     );
   }
+  if ((cfg.outerExtension || 0) > 0) {
+    info.push(
+      `Outer tube solid extension: ${(cfg.outerExtension).toFixed(0)} mm beyond the base, joined to the outer transmission ` +
+        '(included in the complete outer STL and laser pattern, not in the kinematics).',
+    );
+  }
+  const coupler = cfg.transmission.coupler;
+  if (coupler?.enabled) {
+    const extO = Math.max(0, cfg.outerExtension || 0);
+    const extI = Math.max(0, cfg.innerExtension || 0);
+    if (coupler.tubes !== 'inner' && extO <= 0) warnings.push('Transmission coupler is enabled for the outer tube but no outer solid extension is set.');
+    if (coupler.tubes !== 'outer' && extI <= 0) warnings.push('Transmission coupler is enabled for the inner tube but no inner solid extension is set.');
+    const outerId = cfg.outerTube.od - 2 * cfg.outerTube.wall;
+    const innerCouplerOd = cfg.innerTube.od + 2 * (coupler.clearance + coupler.wall);
+    if (coupler.tubes !== 'outer' && innerCouplerOd > outerId - 2 * cfg.minClearance + 1e-6) {
+      warnings.push(
+        `Inner transmission coupler OD ${innerCouplerOd.toFixed(2)} mm exceeds the outer tube bore clearance; ` +
+          'reduce its wall/clearance or use an outer-only coupler.',
+      );
+    }
+    info.push(
+      `Transmission coupler: ${coupler.length.toFixed(0)} mm separate sleeve on the ${coupler.tubes === 'both' ? 'outer and inner' : coupler.tubes} tube(s), ` +
+        `wall ${coupler.wall.toFixed(2)} mm, clearance ${coupler.clearance.toFixed(2)} mm; exported as separate STL(s).`,
+    );
+  }
   if (cfg.transmission.pattern !== 'solid' && cfg.transmission.length > 0) {
     const txO = transmissionDesign(cfg, 'outer');
     const txI = transmissionDesign(cfg, 'inner');
@@ -640,7 +665,7 @@ export function tightestRadius(res: SegmentResult): number | null {
 export function tubeLengths(cfg: SegmentConfig, res: SegmentResult): { outer: number; inner: number } {
   const trans = Math.max(0, cfg.transmission.length);
   return {
-    outer: res.activeTubeLength + trans,
+    outer: res.activeTubeLength + trans + Math.max(0, cfg.outerExtension || 0),
     inner: res.activeTubeLength + trans + Math.max(0, cfg.innerExtension || 0),
   };
 }

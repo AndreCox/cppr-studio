@@ -96,6 +96,8 @@ export function buildReportHtml(project: Project, result: RobotResult): string {
               <tr><th>Inner tube</th><td>⌀${mm(cfg.innerTube.od)} × ${mm(cfg.innerTube.wall)} wall — ${esc(matI.name)}</td></tr>
               <tr><th>Radial clearance</th><td>${mm(res.clearance, 3)}</td></tr>
               ${cfg.innerExtension > 0 ? `<tr><th>Inner handle extension</th><td>${mm(cfg.innerExtension, 0)} solid proximal length</td></tr>` : ''}
+              ${(cfg.outerExtension ?? 0) > 0 ? `<tr><th>Outer solid extension</th><td>${mm(cfg.outerExtension, 0)} solid proximal length</td></tr>` : ''}
+              ${cfg.transmission.coupler?.enabled ? `<tr><th>Transmission coupler</th><td>${mm(cfg.transmission.coupler.length, 0)} sleeve · ${cfg.transmission.coupler.tubes} · wall ${mm(cfg.transmission.coupler.wall, 2)} · clearance ${mm(cfg.transmission.coupler.clearance, 2)}</td></tr>` : ''}
               ${cfg.tipFeature?.enabled ? `<tr><th>Tip cross-pin</th><td>+${mm(cfg.tipFeature.extension, 1)} mm to both tips · Ø${mm(cfg.tipFeature.holeDiameter, 2)} mm diametric hole ${mm(cfg.tipFeature.holeDistance, 1)} mm from the tip · ${mm(cfg.tipFeature.angleDeg, 0)}°</td></tr>` : ''}
               <tr><th>Cut profile</th><td>${cfg.cutType === 'chord' ? 'chord (milled/printed)' : 'radial (laser)'}</td></tr>
               <tr><th>Strain limit / FS</th><td>${pct(cfg.strainLimitOverride ?? matO.strainLimit)} / ${cfg.safetyFactor}</td></tr>

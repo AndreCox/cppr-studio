@@ -31,7 +31,9 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             when the pair must flex — through a curved endoscope channel or through a proximal bending section (as a distal pair
             does). A proximal pair used as a hand-held handle can keep both transmissions solid. The outer and inner patterns are
             set independently, and the inner tube can have a solid proximal handle extension for hand actuation; align the distal
-            tips when assembling.
+            tips when assembling. A solid proximal extension can be added to the outer and/or inner tube and joined to the
+            existing transmission with a separate <b>coupler sleeve</b>; the extension is part of the complete tube, while the sleeve
+            is exported as its own STL.
           </p>
           <h3>Tip cross-pin</h3>
           <p>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Project, TipFeatureConfig } from '../core/types';
 import { cloneMaterials } from '../core/materials';
-import { PRINTED_DEMO, defaultSettings } from '../core/defaults';
+import { PRINTED_DEMO, defaultSettings, defaultTransmission } from '../core/defaults';
 
 const KEY = 'cppr-studio.project.v1';
 const HISTORY_LIMIT = 60;
@@ -21,11 +21,17 @@ export function normalizeProject(p: unknown): Project | null {
       return {
         ...s,
         innerExtension: s.innerExtension ?? 0,
+        outerExtension: s.outerExtension ?? 0,
         tipFeature: {
           enabled: false, extension: 6, holeDiameter: 2, holeDistance: 2,
           angleDeg: 90, ...tf,
         },
-        transmission: { ...s.transmission, innerPattern: s.transmission?.innerPattern ?? 'same' },
+        transmission: {
+          ...defaultTransmission(),
+          ...(s.transmission ?? {}),
+          innerPattern: s.transmission?.innerPattern ?? 'same',
+          coupler: { ...defaultTransmission().coupler, ...(s.transmission?.coupler ?? {}) },
+        },
       };
     }),
   } as Project;
