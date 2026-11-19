@@ -48,7 +48,7 @@ export function PatternView({ cfg, res, onExportSvg, onExportDxf }: Props) {
     ticks.push(
       <g key={`t${z}`}>
         <line x1={z} y1={0} x2={z} y2={circ * 0.045} stroke="#64748b" strokeWidth={font * 0.05} />
-        <text x={z} y={circ * 0.16} className="dim-text" style={{ fontSize: font * 0.85, fill: '#64748b' }} textAnchor="middle">{z.toFixed(0)}</text>
+        <text x={z} y={circ * 0.16} className="dim-text" style={{ fontSize: font * 0.85, fill: 'var(--muted)' }} textAnchor="middle">{z.toFixed(0)}</text>
       </g>,
     );
   }
@@ -57,7 +57,7 @@ export function PatternView({ cfg, res, onExportSvg, onExportDxf }: Props) {
     ticks.push(
       <g key={`a${a}`}>
         <line x1={zStart} y1={-u} x2={zEnd} y2={-u} stroke="#dbe3ec" strokeWidth={0.05} vectorEffect="non-scaling-stroke" />
-        <text x={zStart - w * 0.008} y={-u + font * 0.3} className="dim-text" style={{ fontSize: font * 0.8, fill: '#64748b' }} textAnchor="end">{a}°</text>
+        <text x={zStart - w * 0.008} y={-u + font * 0.3} className="dim-text" style={{ fontSize: font * 0.8, fill: 'var(--muted)' }} textAnchor="end">{a}°</text>
       </g>,
     );
   }
@@ -123,19 +123,19 @@ export function PatternView({ cfg, res, onExportSvg, onExportDxf }: Props) {
               </rect>
             );
           })}
-          <text x={zStart} y={-circ - circ * 0.15} className="dim-text" style={{ fontSize: font * 1.2, fontWeight: 700, fill: '#0f172a' }}>
+          <text x={zStart} y={-circ - circ * 0.15} className="dim-text" style={{ fontSize: font * 1.2, fontWeight: 700, fill: 'var(--text)' }}>
             {cfg.name} · {tube} tube · unrolled pattern (rotated 90°)
           </text>
-          <text x={zEnd} y={-circ - circ * 0.15} className="dim-text" style={{ fontSize: font * 0.85, fill: '#64748b' }} textAnchor="end">
+          <text x={zEnd} y={-circ - circ * 0.15} className="dim-text" style={{ fontSize: font * 0.85, fill: 'var(--muted)' }} textAnchor="end">
             ⌀{(pattern.radius * 2).toFixed(2)} mm · circumference {circ.toFixed(1)} mm · {cfg.cutType} notches
           </text>
           <text x={zStart} y={-circ - circ * 0.035} className="dim-text" style={{ fontSize: font * 0.8, fill: '#e11d48' }}>cut</text>
-          <text x={zEnd} y={-circ - circ * 0.035} className="dim-text" style={{ fontSize: font * 0.8, fill: '#64748b' }} textAnchor="end">
+          <text x={zEnd} y={-circ - circ * 0.035} className="dim-text" style={{ fontSize: font * 0.8, fill: 'var(--muted)' }} textAnchor="end">
             active section {pattern.activeStart.toFixed(0)}–{pattern.activeEnd.toFixed(0)} mm
           </text>
         </svg>
       </div>
-      <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--border)', background: '#fff', padding: '10px 14px', display: 'flex', gap: 22, flexWrap: 'wrap', alignItems: 'center', fontSize: 11 }}>
+      <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--border)', background: 'var(--card)', padding: '10px 14px', display: 'flex', gap: 22, flexWrap: 'wrap', alignItems: 'center', fontSize: 11 }}>
         <span className="flex gap6"><Icon name="ruler" className="sm" /> <b>{pattern.regions.length}</b> cut outlines{pattern.holes.length > 0 ? ` · ${pattern.holes.length} pin holes` : ''}{!fullLength && pattern.regions.length !== pattern.regions.filter((r) => r.kind === 'notch').length ? ` (${pattern.regions.length - pattern.regions.filter((r) => r.kind === 'notch').length} transmission hidden in this crop)` : ''}</span>
         <span className="muted">
           transmission: <b>{cfg.transmission.pattern}</b>

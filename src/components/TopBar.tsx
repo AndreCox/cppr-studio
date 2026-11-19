@@ -15,10 +15,12 @@ interface Props {
   onHelp: () => void;
   onImport: () => void;
   onFabricate: () => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
 }
 
 export function TopBar(props: Props) {
-  const { project, result, designing, canUndo, canRedo, onRename, onUndo, onRedo, onExamples, onHelp, onImport, onFabricate } = props;
+  const { project, result, designing, canUndo, canRedo, onRename, onUndo, onRedo, onExamples, onHelp, onImport, onFabricate, theme, onToggleTheme } = props;
   const [name, setName] = useState(project.name);
   useEffect(() => setName(project.name), [project.name]);
   const issues = result.errors.length + result.warnings.length;
@@ -62,6 +64,15 @@ export function TopBar(props: Props) {
         <span className="topbar-sep" />
         <button type="button" className="tbtn" onClick={onExamples}><Icon name="sparkles" /> Examples</button>
         <button type="button" className="tbtn" onClick={onHelp}><Icon name="help" /> Guide</button>
+        <button
+          type="button"
+          className="tbtn"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={onToggleTheme}
+        >
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+        </button>
         <button type="button" className="tbtn" title="Import a CPPR Studio project JSON" onClick={onImport}><Icon name="upload" /></button>
         <Button variant="primary" icon="package" onClick={onFabricate}>Fabricate</Button>
       </div>

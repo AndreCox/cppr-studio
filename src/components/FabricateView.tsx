@@ -173,7 +173,7 @@ export function FabricateView({ project, result, onImport, onNew, onExamples }: 
             const usedW = Math.max(55, ...tipPlate.layout.map((l) => l.x + l.width)) + 22;
             const usedH = Math.max(60, ...tipPlate.layout.map((l) => l.y + l.height)) + 5;
             return (
-            <svg viewBox={`0 0 ${usedW} ${usedH}`} style={{ width: '100%', height: 150, background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 7 }}>
+            <svg viewBox={`0 0 ${usedW} ${usedH}`} style={{ width: '100%', height: 150, background: 'var(--canvas-bg)', border: '1px solid var(--border)', borderRadius: 7 }}>
               {tipPlate.layout.map((l, i) => (
                 <g key={i}>
                   <rect x={l.x} y={l.y} width={Math.max(1.2, l.width)} height={Math.max(1.2, Math.min(196, l.height))} fill={i % 2 ? '#bfdbfe' : '#c7d2fe'} stroke="#2563eb" strokeWidth={0.4} rx={Math.min(1, l.width / 4)} />

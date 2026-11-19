@@ -36,9 +36,10 @@ interface Props {
   cfg: SegmentConfig;
   res: SegmentResult | undefined;
   designing?: boolean;
+  theme?: 'light' | 'dark';
 }
 
-export function TubeViewer({ cfg, res, designing = false }: Props) {
+export function TubeViewer({ cfg, res, designing = false, theme = 'light' }: Props) {
   const [tube, setTube] = useState<TubeChoice>('both');
   const [mode, setMode] = useState<PreviewMode>('complete');
   const [autoRotate, setAutoRotate] = useState(false);
@@ -128,6 +129,7 @@ export function TubeViewer({ cfg, res, designing = false }: Props) {
         fitNonce={fitNonce}
         focusTip={focusTip}
         onError={setCanvasError}
+        theme={theme}
       />
 
       <div className="tube-toolbar">
@@ -271,6 +273,7 @@ interface CanvasProps {
   fitNonce: number;
   focusTip: boolean;
   onError: (message: string) => void;
+  theme: 'light' | 'dark';
 }
 
 interface ViewerState {
@@ -282,7 +285,7 @@ interface ViewerState {
   fit: () => void;
 }
 
-function TubeCanvas({ fab, cfg, tube, autoRotate, fitNonce, focusTip, onError }: CanvasProps) {
+function TubeCanvas({ fab, cfg, tube, autoRotate, fitNonce, focusTip, onError, theme }: CanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<ViewerState | null>(null);
   const lastFit = useRef('');
@@ -323,7 +326,8 @@ function TubeCanvas({ fab, cfg, tube, autoRotate, fitNonce, focusTip, onError }:
     fill.position.set(-160, 140, 90);
     scene.add(fill);
 
-    const grid = new THREE.GridHelper(600, 60, 0xc7d2e2, 0xe2e8f0);
+    const dark = theme === 'dark';
+    const grid = new THREE.GridHelper(600, 60, dark ? 0x2b3d59 : 0xc7d2e2, dark ? 0x17253a : 0xe2e8f0);
     grid.rotation.x = Math.PI / 2;
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.5;

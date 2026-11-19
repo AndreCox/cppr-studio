@@ -19,11 +19,12 @@ interface Props {
   onSelectSegment: (id: string) => void;
   solverMode: SolverMode;
   cosserat: CosseratResult | null;
+  theme: 'light' | 'dark';
 }
 
 export function Robot3D({
   project, result, fraction, selectedSegmentId, onSelectSegment,
-  solverMode, cosserat,
+  solverMode, cosserat, theme,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -119,18 +120,19 @@ export function Robot3D({
     rim.position.set(-180, 130, 210);
     scene.add(rim);
 
+    const dark = theme === 'dark';
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(340, 72),
-      new THREE.ShadowMaterial({ color: 0x0f172a, opacity: 0.18 }),
+      new THREE.ShadowMaterial({ color: dark ? 0x000000 : 0x0f172a, opacity: dark ? 0.42 : 0.18 }),
     );
     ground.position.z = -0.12;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const grid = new THREE.GridHelper(400, 40, 0xb8c6d8, 0xdde6f0);
+    const grid = new THREE.GridHelper(400, 40, dark ? 0x2b3d59 : 0xb8c6d8, dark ? 0x17253a : 0xdde6f0);
     grid.rotation.x = Math.PI / 2;
     (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.38;
+    (grid.material as THREE.Material).opacity = dark ? 0.5 : 0.38;
     gridRef.current = grid;
     scene.add(grid);
 

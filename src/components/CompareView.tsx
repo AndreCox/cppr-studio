@@ -107,7 +107,7 @@ function CompareChart({ rows, title }: { rows: ModelRow[]; title: string }) {
   return (
     <div className="compare-chart-inner">
       <svg className="compare-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Model centerline comparison">
-        <rect x={0} y={0} width={W} height={H} fill="#fbfdff" />
+        <rect x={0} y={0} width={W} height={H} className="compare-chart-bg" />
         {xTicks.map((t) => (
           <line key={`gx${t}`} x1={sx(t)} y1={M.top} x2={sx(t)} y2={H - M.bottom} className="compare-grid" />
         ))}

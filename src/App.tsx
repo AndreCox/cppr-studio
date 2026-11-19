@@ -6,6 +6,7 @@ import { normalizeProject, useProject } from './state/useProject';
 import { buildLaserPatterns, patternToDxf, patternToSvg } from './core/fab/patterns';
 import { downloadText, slugify } from './lib/files';
 import { TopBar } from './components/TopBar';
+import { useTheme } from './state/useTheme';
 import { LeftPanel } from './components/LeftPanel';
 import { Inspector } from './components/Inspector';
 import { ShapeView } from './components/ShapeView';
@@ -37,6 +38,7 @@ const VIEWS: { id: View; label: string; short: string; icon: string }[] = [
 const round = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 
 export default function App() {
+  const { theme, toggle: toggleTheme } = useTheme();
   const { project, setProject, replaceProject, undo, redo, canUndo, canRedo } = useProject();
   const [selectedId, setSelectedId] = useState(() => project.segments[0]?.id ?? '');
   const [view, setView] = useState<View>('shape');
@@ -329,6 +331,8 @@ export default function App() {
         onHelp={() => setHelpOpen(true)}
         onImport={() => fileInput.current?.click()}
         onFabricate={() => setView('fabricate')}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <div className="main">
         <LeftPanel
@@ -425,6 +429,7 @@ export default function App() {
                 onSelectSegment={selectSegment}
                 solverMode={solverMode}
                 cosserat={cosserat}
+                theme={theme}
               />
             )}
             {view === 'compare' && (
@@ -444,7 +449,7 @@ export default function App() {
               <PatternView cfg={selected} res={selectedRes} onExportSvg={exportPatternSvg} onExportDxf={exportPatternDxf} />
             )}
             {view === 'tube' && viewerCfg && (
-              <TubeViewer cfg={viewerCfg} res={viewerRes} designing={designing} />
+              <TubeViewer cfg={viewerCfg} res={viewerRes} designing={designing} theme={theme} />
             )}
             {view === 'fabricate' && (
               <FabricateView

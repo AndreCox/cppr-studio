@@ -81,7 +81,7 @@ export function CrossSectionView({ cfg, res, notchIndex, onSelectNotch }: Props)
 
   return (
     <div className="section-wrap">
-      <div style={{ flex: 1, minWidth: 0, position: 'relative', background: '#fbfdff' }}>
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', background: 'var(--canvas-bg)' }}>
         <svg className="section-svg" viewBox={`${-scaleView} ${-scaleView} ${scaleView * 2} ${scaleView * 2}`} preserveAspectRatio="xMidYMid meet">
           <defs>
             <pattern id="hatch" width="0.5" height="0.5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -115,7 +115,7 @@ export function CrossSectionView({ cfg, res, notchIndex, onSelectNotch }: Props)
           {/* OD dimension */}
           <line x1={-R * 0.55} y1={R * 1.12} x2={R * 0.55} y2={R * 1.12} className="dim" />
           <text x={0} y={R * 1.22} textAnchor="middle" className="dim-text" style={{ fontSize: small }}>⌀{cfg.outerTube.od.toFixed(2)} outer · ⌀{cfg.innerTube.od.toFixed(2)} inner</text>
-          <text x={-scaleView * 0.94} y={-scaleView * 0.9} className="dim-text" style={{ fontSize: font, fontWeight: 600, fill: '#0f172a' }}>notch {notch.index + 1}</text>
+          <text x={-scaleView * 0.94} y={-scaleView * 0.9} className="dim-text" style={{ fontSize: font, fontWeight: 600, fill: 'var(--text)' }}>notch {notch.index + 1}</text>
           <text x={-scaleView * 0.94} y={-scaleView * 0.82} className="dim-text" style={{ fontSize: small }}>
             {cfg.cutType === 'chord' ? 'chord cut (print/mill)' : 'radial cut (laser)'} · h {notch.h.toFixed(2)} mm
           </text>

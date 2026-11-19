@@ -305,7 +305,7 @@ export function ShapeView(props: Props) {
           if ((e.target as Element).tagName === 'svg' || (e.target as Element).classList.contains('grid-line')) fit();
         }}
       >
-        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="#fbfdff" />
+        <rect x={view.x} y={view.y} width={view.w} height={view.h} className="shape-bg" />
         {gridLines}
         <line x1={0} y1={-zEnd} x2={0} y2={-zStart} className="axis" vectorEffect="non-scaling-stroke" />
         <line x1={xStart} y1={0} x2={xEnd} y2={0} className="axis" vectorEffect="non-scaling-stroke" />
@@ -395,7 +395,7 @@ export function ShapeView(props: Props) {
       <div className="view-note">
         <div className="legend">
           <span><span className="swatch dash" style={{ color: '#2563eb' }} />target shape</span>
-          <span><span className="swatch" style={{ background: '#0f172a' }} />model shape</span>
+          <span><span className="swatch" style={{ background: 'var(--text)' }} />model shape</span>
           {showFan && <span className="faint">ghost = actuation sweep</span>}
           {cfg.shape.kind === 'waypoints' && <span className="faint">drag the round handles to edit the shape</span>}
         </div>
