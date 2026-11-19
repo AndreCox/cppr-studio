@@ -30,9 +30,9 @@ A graphical design tool for **multi-section concentric push–pull robots (CPPRs
 | --- | --- |
 | ![Connected transmission](docs/screenshots/transmission-coupler.png) | ![Design report](docs/screenshots/report.png) |
 
-| Tip stiffness |
-| --- |
-| ![Tip stiffness](docs/screenshots/tip-stiffness.png) |
+| Tip stiffness | STEP export |
+| --- | --- |
+| ![Tip stiffness](docs/screenshots/tip-stiffness.png) | ![STEP export](docs/screenshots/step-export.png) |
 
 ## Quick start
 

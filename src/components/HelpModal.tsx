@@ -50,6 +50,19 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             ghosted. Only the accurate tube meshes are shown; the grid and axes are display helpers that can be toggled off. Use the <b>Iso</b>,
             <b>Front</b>, <b>Side</b> and <b>Top</b> presets to inspect the pose; toggle the grid and axes from the same bar.
           </p>
+          <h3>Tip stiffness</h3>
+          <p>
+            The <b>Tip stiffness</b> view applies an adjustable point force at the distal tip and solves the assembled Cosserat chain twice:
+            unloaded and loaded. The tip displacement is their difference; the panel reports directional secant stiffness F/(Δ·n),
+            compliance, force/deflection angle and tip rotation. Planar 2D projects the force into the base X–Z bending plane; use full 3D
+            for out-of-plane loads. Reduce the force to approach the linear tangent stiffness.
+          </p>
+          <h3>Fabrication and STEP</h3>
+          <p>
+            The Fabricate view exports the complete tubes and couplers as a faceted AP214 STEP for SolidWorks. Each part is a separate solid
+            body in print orientation with millimetre units; per-part files are smaller, while <b>All parts STEP</b> is one multibody file.
+            The STEP is tessellated, not a NURBS B-rep; rebuild the tube in SolidWorks from the dimensions if you need smooth surfaces.
+          </p>
           <h3>Cosserat (accurate) bending</h3>
           <p>
             The right rail has a <b>Bending model</b> section (visible in every view) and the <b>3D robot</b> context bar shows the live solver status. <b>Analytic</b> is the fast design model used while sizing notches.
