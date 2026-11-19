@@ -183,6 +183,7 @@ export function assembleRobot(
       segmentId: cfg.id,
       points,
       tip: points[points.length - 1],
+      base: { position: P0, quaternion: quatFromMat(Q0) },
       frames,
       notches,
     });

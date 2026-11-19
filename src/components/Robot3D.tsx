@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import type { Project, RobotResult } from '../core/types';
 import { assembleRobot } from '../core/design/robot';
 import { buildCosseratAssembly } from '../core/cosserat/assembly';
+import { buildSegmentTubes, type TubeBuild } from '../core/fab/build';
 import type { CosseratResult, SolverMode } from '../core/cosserat/solver';
 import { IconButton } from './ui';
 
@@ -171,7 +172,11 @@ export function Robot3D({
       const current = assemblyRef.current;
       if (!current.worldShape.length) return;
       const box = new THREE.Box3();
-      for (const p of current.worldShape) box.expandByPoint(new THREE.Vector3(p[0], p[1], p[2]));
+      const liveGroup = robotGroupRef.current;
+      if (liveGroup && liveGroup.children.length) box.setFromObject(liveGroup);
+      if (box.isEmpty()) {
+        for (const p of current.worldShape) box.expandByPoint(new THREE.Vector3(p[0], p[1], p[2]));
+      }
       if (box.isEmpty()) return;
       const center = box.getCenter(new THREE.Vector3());
       const sphere = box.getBoundingSphere(new THREE.Sphere());
@@ -237,81 +242,112 @@ export function Robot3D({
       const idx = enabled.findIndex((s) => s.id === seg.segmentId);
       const cfg = enabled[idx];
       if (!cfg) return;
-      const color = new THREE.Color(COLORS[idx % COLORS.length]);
       const selected = cfg.id === selectedSegmentId;
-      const pts = seg.points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+      const pts: THREE.Vector3[] = seg.points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
       if (pts.length < 2) return;
-      const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.15);
-      const radius = Math.max(0.15, cfg.outerTube.od / 2);
-      const tubeGeo = new THREE.TubeGeometry(curve, Math.max(40, pts.length * 3), radius, 24, false);
-      if (selected) {
-        const outlineGeo = new THREE.TubeGeometry(curve, Math.max(32, pts.length * 2), radius + Math.max(0.07, radius * 0.035), 16, false);
-        const outline = new THREE.Mesh(
-          outlineGeo,
-          new THREE.MeshBasicMaterial({
-            color: new THREE.Color(COLORS[idx % COLORS.length]).multiplyScalar(0.42),
-            side: THREE.BackSide,
-            transparent: true,
-            opacity: 0.34,
-          }),
-        );
-        group.add(outline);
+      const res = result.segments.find((r) => r.segmentId === cfg.id);
+      if (!res) return;
+      const fab = buildSegmentTubes(cfg, res, { includeTransmission: true });
+      const colorBase = new THREE.Color(COLORS[idx % COLORS.length]);
+      const basePos = new THREE.Vector3(seg.base.position[0], seg.base.position[1], seg.base.position[2]);
+      const baseQ = new THREE.Quaternion(seg.base.quaternion[0], seg.base.quaternion[1], seg.base.quaternion[2], seg.base.quaternion[3]).normalize();
+      const baseT = new THREE.Vector3(0, 0, 1).applyQuaternion(baseQ).normalize();
+      const baseN = new THREE.Vector3(1, 0, 0).applyQuaternion(baseQ).normalize();
+      const cum: number[] = [0];
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + pts[i].distanceTo(pts[i - 1]));
+      const frames: { s: number; p: THREE.Vector3; T: THREE.Vector3; N: THREE.Vector3; B: THREE.Vector3 }[] = [];
+      let prevT = baseT.clone();
+      let transportedN = baseN.clone();
+      for (let i = 0; i < pts.length; i++) {
+        const T = i === 0 ? baseT.clone() : pts[i].clone().sub(pts[i - 1]).normalize();
+        if (i > 0) {
+          const q = new THREE.Quaternion().setFromUnitVectors(prevT, T);
+          transportedN.applyQuaternion(q);
+        }
+        transportedN.sub(T.clone().multiplyScalar(transportedN.dot(T))).normalize();
+        const B = new THREE.Vector3().crossVectors(T, transportedN).normalize();
+        frames.push({ s: cum[i], p: pts[i].clone(), T, N: transportedN.clone(), B });
+        prevT = T;
       }
-      const mat = new THREE.MeshPhysicalMaterial({
-        color,
-        roughness: 0.3,
-        metalness: 0.12,
-        clearcoat: 0.42,
-        clearcoatRoughness: 0.38,
-        transparent: !selected,
-        opacity: selected ? 1 : 0.5,
-        depthWrite: selected,
-        envMapIntensity: 1.15,
-        side: THREE.DoubleSide,
-      });
-      const mesh = new THREE.Mesh(tubeGeo, mat);
-      mesh.userData.segmentId = cfg.id;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-
-      for (const n of seg.notches) {
-        const q = new THREE.Quaternion(n.quaternion[0], n.quaternion[1], n.quaternion[2], n.quaternion[3]);
-        const tangent = new THREE.Vector3(0, 0, 1).applyQuaternion(q).normalize();
-        const ring = new THREE.Mesh(
-          new THREE.TorusGeometry(radius * 1.006, Math.max(0.07, radius * 0.05), 8, 32),
-          new THREE.MeshStandardMaterial({ color: 0x243044, roughness: 0.7, metalness: 0.2 }),
-        );
-        ring.position.set(n.position[0], n.position[1], n.position[2]);
-        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-        ring.castShadow = true;
-        group.add(ring);
-
-        const highlight = new THREE.Mesh(
-          new THREE.TorusGeometry(radius * 1.022, Math.max(0.018, radius * 0.011), 6, 32),
-          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.24 }),
-        );
-        highlight.position.copy(ring.position);
-        highlight.quaternion.copy(ring.quaternion);
-        group.add(highlight);
-      }
-
+      const frameAt = (s: number) => {
+        const clamped = Math.max(0, Math.min(cum[cum.length - 1], s));
+        let j = 1;
+        while (j < frames.length - 1 && frames[j].s < clamped) j++;
+        const a = frames[j - 1];
+        const b = frames[j] ?? a;
+        const w = b.s > a.s ? (clamped - a.s) / (b.s - a.s) : 0;
+        return {
+          p: a.p.clone().lerp(b.p, w),
+          T: a.T.clone().lerp(b.T, w).normalize(),
+          N: a.N.clone().lerp(b.N, w).normalize(),
+          B: a.B.clone().lerp(b.B, w).normalize(),
+        };
+      };
+      const makeDeformed = (tube: TubeBuild, activeBase: number) => {
+        const pos = tube.mesh.positions;
+        const out = new Float32Array(pos.length);
+        const colors = new Float32Array(pos.length);
+        const dark = colorBase.clone().multiplyScalar(0.72).lerp(new THREE.Color('#334155'), 0.18);
+        for (let i = 0; i < pos.length; i += 3) {
+          const x = pos[i];
+          const y = pos[i + 1];
+          const z = pos[i + 2];
+          let world: THREE.Vector3;
+          let c = colorBase;
+          if (z <= activeBase) {
+            world = new THREE.Vector3(x, y, z - activeBase).applyQuaternion(baseQ).add(basePos);
+            c = dark;
+          } else if (z <= activeBase + res.activeTubeLength) {
+            const f = frameAt(z - activeBase);
+            world = f.p.clone().addScaledVector(f.N, x).addScaledVector(f.B, y);
+          } else {
+            const last = frames[frames.length - 1];
+            const extra = z - (activeBase + res.activeTubeLength);
+            world = last.p.clone().addScaledVector(last.T, extra).addScaledVector(last.N, x).addScaledVector(last.B, y);
+          }
+          out[i] = world.x; out[i + 1] = world.y; out[i + 2] = world.z;
+          colors[i] = c.r; colors[i + 1] = c.g; colors[i + 2] = c.b;
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(out, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geometry.setIndex(new THREE.Uint32BufferAttribute(new Uint32Array(tube.mesh.triangles), 1));
+        geometry.computeVertexNormals();
+        const mat = new THREE.MeshPhysicalMaterial({
+          vertexColors: true,
+          roughness: 0.34,
+          metalness: 0.1,
+          clearcoat: 0.35,
+          clearcoatRoughness: 0.42,
+          transparent: !selected,
+          opacity: selected ? 1 : 0.42,
+          depthWrite: selected,
+          envMapIntensity: 1.1,
+          side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(geometry, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+        if (selected) {
+          const outline = new THREE.Mesh(
+            geometry,
+            new THREE.MeshBasicMaterial({ color: colorBase.clone().multiplyScalar(0.35), side: THREE.BackSide, transparent: true, opacity: 0.22 }),
+          );
+          outline.scale.setScalar(1.008);
+          group.add(outline);
+        }
+      };
+      makeDeformed(fab.outer, fab.outerActiveStart);
+      makeDeformed(fab.inner, fab.innerActiveStart);
+      const last = frames[frames.length - 1];
       const tip = new THREE.Mesh(
-        new THREE.SphereGeometry(radius * 1.015, 24, 16),
-        new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, metalness: 0.1, clearcoat: 0.5, clearcoatRoughness: 0.3 }),
+        new THREE.SphereGeometry(Math.max(0.2, cfg.innerTube.od / 2), 16, 12),
+        new THREE.MeshStandardMaterial({ color: colorBase, roughness: 0.4, metalness: 0.1, transparent: !selected, opacity: selected ? 1 : 0.5 }),
       );
-      tip.position.set(seg.tip[0], seg.tip[1], seg.tip[2]);
+      tip.position.copy(last.p);
       tip.castShadow = true;
-      tip.receiveShadow = true;
       group.add(tip);
-      const tipTangent = pts[pts.length - 1].clone().sub(pts[pts.length - 2]).normalize();
-      const tipRing = new THREE.Mesh(
-        new THREE.TorusGeometry(radius * 1.04, Math.max(0.02, radius * 0.02), 6, 28),
-        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.3 }),
-      );
-      tipRing.position.copy(tip.position);
-      tipRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tipTangent);
-      group.add(tipRing);
     });
 
     // base disc
@@ -389,8 +425,8 @@ export function Robot3D({
 
       <div className="view-note">
         <div className="legend">
-          <span><span className="swatch" style={{ background: '#1e293b' }} />notch hinge</span>
-          <span className="faint">ghosted tubes are unselected segments</span>
+          <span><span className="swatch" style={{ background: '#1e293b' }} />actual notched tube</span>
+          <span className="faint">transmission grooves + notch cuts · ghosted tubes are unselected</span>
         </div>
         <div className="grow" />
         <div className="scene-viewbar">

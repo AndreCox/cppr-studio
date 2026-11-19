@@ -299,6 +299,8 @@ export interface RobotResult {
     segmentId: string;
     points: [number, number, number][];
     tip: [number, number, number];
+    /** Base frame of the segment's active section (local +z is the tube axis). */
+    base: { position: [number, number, number]; quaternion: [number, number, number, number] };
     frames: { position: [number, number, number]; quaternion: [number, number, number, number] }[];
     notches: { position: [number, number, number]; quaternion: [number, number, number, number]; h: number }[];
   }[];

@@ -62,10 +62,14 @@ export function buildCosseratAssembly(
       };
     });
     const frames = notches.map((notch) => ({ position: notch.position, quaternion: notch.quaternion }));
+    const baseFrame = section.leader[0];
     worldSegments.push({
       segmentId,
       points,
       tip: points[points.length - 1],
+      base: baseFrame
+        ? { position: points[0], quaternion: quatFromMat(frameMatrix(baseFrame)) }
+        : { position: points[0], quaternion: [0, 0, 0, 1] },
       frames,
       notches,
     });
